@@ -20,8 +20,30 @@
 
 	var startGraph = [0, 750];
 
+	var lastFullRotation = 0;
+
+	var planetRotation = 0;
+
+	var rotationAmount = 0.04;
 
 	function mainloop(){
+
+
+		// lower the number, the faster it spins
+
+
+//      for 80, 20: ?
+
+// 		for 60, 20: 2 -> 3
+
+//      for 40, 20: 1 -> 2
+
+//		for 30, 20: 0.5 -> 1.5
+
+		planetRotation += rotationAmount * (ringTeeth/planetTeeth - 1);
+		planetAngle += rotationAmount;
+
+
 		var c = document.getElementById("myCanvas");
 		var ctx = c.getContext("2d");
 		ctx.clearRect(0, 0, c.width, c.height);
@@ -39,7 +61,16 @@
 		var planetSize = toothSize * planetTeeth / Math.PI;
 
 
-		var planetRotation =  (ringTeeth / planetTeeth) / 2 * planetAngle;
+		// ring has 2x teeth as planet, it does rotation = 2 * planet angle
+
+
+		// planetRotation =  (ringTeeth / planetTeeth) / 2 * planetAngle;
+
+
+		if (planetRotation > lastFullRotation + Math.PI*2) { 
+			console.log("rotation", lastFullRotation / Math.PI/2);
+			lastFullRotation += Math.PI*2;
+		}
 
 		var offsetX = Math.sin(planetAngle) * ringSize - Math.sin(planetAngle) * planetSize;
 		var offsetY = Math.cos(planetAngle) * ringSize - Math.cos(planetAngle) * planetSize;
@@ -50,7 +81,7 @@
 		drawCircle(planetX, planetY, planetTeeth, planetRotation, "#696969", 10);
 
 
-		planetAngle += 0.04;
+		
 		// if (planetAngle > Math.PI * 2){
 		// 	planetAngle = planetAngle - Math.PI*2;
 		// }
@@ -107,8 +138,7 @@
 
 
 		graphRange = graphMax - graphMin;
-		console.log(graphRange);
-
+		
 
 		var i = 0;
 		ctx.beginPath();
@@ -209,7 +239,7 @@ con rod attachment point offset <input type="range" min="1" max="100" value="30"
 
 con rod length <input type="range" min="1" max="1000" value="200", id="conRodLen"> <span id="conRodLenSpan">200</span><br><br>
 
-animation speed <input type="range" min="1" max="100" value="10", id="animationSpeed"> <span id="animationSpan">10</span><br><br>
+animation speed <input type="range" min="1" max="500" value="10", id="animationSpeed"> <span id="animationSpan">10</span><br><br>
 
 
 <canvas id="myCanvas" width="1000px" height="1000px" style="position: absolute; background: rgb(200,200,200);">
@@ -236,6 +266,16 @@ animation speed <input type="range" min="1" max="100" value="10", id="animationS
 
 	var planetSizeSpan = document.getElementById("planetSizeSpan");
 
+	function resetGlobals(){
+		strokeDataPoints = [];
+		planetAngle = 0;
+		planetRotation = 0;
+		lastFullRotation = 0;	
+	}
+
+	function setSpans(){
+
+	}
 
 
 	toothSlider.oninput = function() {
@@ -248,7 +288,7 @@ animation speed <input type="range" min="1" max="100" value="10", id="animationS
 
 		var planetSize = Math.floor(toothSize * planetTeeth / Math.PI);
 		planetSizeSpan.innerHTML = planetSize;
-		strokeDataPoints = [];
+		resetGlobals();
 	}
 
 
@@ -257,7 +297,7 @@ animation speed <input type="range" min="1" max="100" value="10", id="animationS
 		ringTeeth = this.value;
 		var ringSize = Math.floor(toothSize * ringTeeth / Math.PI);
 		ringSizeSpan.innerHTML = ringSize;
-		strokeDataPoints = [];
+		resetGlobals();
 	}
 
 	
@@ -271,7 +311,7 @@ animation speed <input type="range" min="1" max="100" value="10", id="animationS
 
 		var planetSize = Math.floor(toothSize * planetTeeth / Math.PI);
 		planetSizeSpan.innerHTML = planetSize;
-		strokeDataPoints = [];
+		resetGlobals();
 	}
 
 	var knobSlider = document.getElementById("knobDist");
@@ -279,7 +319,7 @@ animation speed <input type="range" min="1" max="100" value="10", id="animationS
   		var output = document.getElementById("knobSpan");
 		output.innerHTML = this.value;
 		knobDist = this.value;
-		strokeDataPoints = [];
+		resetGlobals();
 	}
 
 	var conRodSlider = document.getElementById("conRodLen");
@@ -287,7 +327,7 @@ animation speed <input type="range" min="1" max="100" value="10", id="animationS
   		var output = document.getElementById("conRodLenSpan");
 		output.innerHTML = this.value;
 		conRodLength = this.value;
-		strokeDataPoints = [];
+		resetGlobals();
 	}
 
 	var animationSlider = document.getElementById("animationSpeed");
@@ -298,6 +338,8 @@ animation speed <input type="range" min="1" max="100" value="10", id="animationS
 		clearInterval(myInterval);
 		myInterval = setInterval(mainloop,  this.value);
 	}
+
+
 
 
 
