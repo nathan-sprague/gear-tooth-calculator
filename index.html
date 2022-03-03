@@ -18,7 +18,7 @@
 
 	var center = [500, 400];
 
-	var startGraph = [0, 200];
+	var startGraph = [0, 750];
 
 
 	function mainloop(){
@@ -83,24 +83,43 @@
 		ctx.lineTo(knobLocationX+difX, knobLocationY+difY);
 		ctx.lineWidth = 10
 		ctx.stroke();
-		strokeDataPoints.push(knobLocationY);
+		strokeDataPoints.push(difY);
 		if (strokeDataPoints.length > 600) {
 			strokeDataPoints.shift();
 		}
 
+		drawGraph();
+
+		// console.log(strokeDataPoints);
+	}
+
+	function drawGraph() {
+
+		var c = document.getElementById("myCanvas");
+		var ctx = c.getContext("2d");
+		ctx.clearRect(0, 750, c.width, c.height);
+
+
+
+		graphMax = Math.max(...strokeDataPoints);
+
+		graphMin = Math.min(...strokeDataPoints);
+
+
+		graphRange = graphMax - graphMin;
+		console.log(graphRange);
+
 
 		var i = 0;
-
 		ctx.beginPath();
-		ctx.moveTo(startGraph[0], strokeDataPoints[0] - startGraph[1]);
+		ctx.moveTo(startGraph[0], startGraph[1] + (strokeDataPoints[0]-graphMin)/graphRange * 100);
 
 		while (i< strokeDataPoints.length) {
-			ctx.lineTo(startGraph[0] + i*2, strokeDataPoints[i] - startGraph[1]);
+			ctx.lineTo(startGraph[0] + i*2, (strokeDataPoints[i]-graphMin)/graphRange * 100 + startGraph[1]);
 			i += 1;
 		}
 
 		ctx.stroke();
-		// console.log(strokeDataPoints);
 
 	}
 
@@ -175,10 +194,16 @@
 <link rel="shortcut icon" href="">
 
 	<!-- <input type="range" min="1" max="100" value="50"> -->
+tooth size: <input type="range" min="1" max="500" value="50", id="toothSize"> <span id="toothSizeSpan">50</span><br><br>
 
-ring teeth: <input type="range" min="1" max="100" value="40", id="ringTeeth"> <span id="ringTeethSpan">40</span><br><br>
 
-planet teeth: <input type="range" min="1" max="100" value="20", id="planetTeeth"> <span id="planetTeethSpan">20</span><br><br>
+ring teeth: <input type="range" min="1" max="1000" value="40", id="ringTeeth"> <span id="ringTeethSpan">40</span>
+....................... Ring size: <span id="ringSizeSpan">127</span>
+<br><br>
+
+planet teeth: <input type="range" min="1" max="100" value="20", id="planetTeeth"> <span id="planetTeethSpan">20</span>
+....................... Planet Size: <span id="planetSizeSpan">127</span>
+<br><br>
 
 con rod attachment point offset <input type="range" min="1" max="100" value="30", id="knobDist"> <span id="knobSpan">30</span><br><br>
 
@@ -187,7 +212,8 @@ con rod length <input type="range" min="1" max="1000" value="200", id="conRodLen
 animation speed <input type="range" min="1" max="100" value="10", id="animationSpeed"> <span id="animationSpan">10</span><br><br>
 
 
-<canvas id="myCanvas" width="1000px" height="750px" style="position: static; background: rgb(200,200,200);">
+<canvas id="myCanvas" width="1000px" height="1000px" style="position: absolute; background: rgb(200,200,200);">
+
 
 
 
@@ -200,18 +226,52 @@ animation speed <input type="range" min="1" max="100" value="10", id="animationS
 	
 
 
+	var toothSlider = document.getElementById("toothSize");
+	var toothSpan = document.getElementById("toothSizeSpan");
+
 	var ringSlider = document.getElementById("ringTeeth");
-	ringSlider.oninput = function() {
-  		var output = document.getElementById("ringTeethSpan");
-		output.innerHTML = this.value;
-		ringTeeth = this.value;
+
+	var ringSliderSpan = document.getElementById("ringTeethSpan");
+	var ringSizeSpan = document.getElementById("ringSizeSpan");
+
+	var planetSizeSpan = document.getElementById("planetSizeSpan");
+
+
+
+	toothSlider.oninput = function() {
+		console.log(this.value);
+		toothSpan.innerHTML = this.value;
+		toothSize = this.value / 5;
+
+		var ringSize = Math.floor(toothSize * ringTeeth / Math.PI);
+		ringSizeSpan.innerHTML = ringSize;
+
+		var planetSize = Math.floor(toothSize * planetTeeth / Math.PI);
+		planetSizeSpan.innerHTML = planetSize;
+		strokeDataPoints = [];
 	}
+
+
+	ringSlider.oninput = function() {
+		ringSliderSpan.innerHTML = this.value;
+		ringTeeth = this.value;
+		var ringSize = Math.floor(toothSize * ringTeeth / Math.PI);
+		ringSizeSpan.innerHTML = ringSize;
+		strokeDataPoints = [];
+	}
+
+	
+
 
 	var planetSlider = document.getElementById("planetTeeth");
 	planetSlider.oninput = function() {
   		var output = document.getElementById("planetTeethSpan");
 		output.innerHTML = this.value;
 		planetTeeth = this.value;
+
+		var planetSize = Math.floor(toothSize * planetTeeth / Math.PI);
+		planetSizeSpan.innerHTML = planetSize;
+		strokeDataPoints = [];
 	}
 
 	var knobSlider = document.getElementById("knobDist");
@@ -219,6 +279,7 @@ animation speed <input type="range" min="1" max="100" value="10", id="animationS
   		var output = document.getElementById("knobSpan");
 		output.innerHTML = this.value;
 		knobDist = this.value;
+		strokeDataPoints = [];
 	}
 
 	var conRodSlider = document.getElementById("conRodLen");
@@ -226,16 +287,18 @@ animation speed <input type="range" min="1" max="100" value="10", id="animationS
   		var output = document.getElementById("conRodLenSpan");
 		output.innerHTML = this.value;
 		conRodLength = this.value;
+		strokeDataPoints = [];
 	}
 
-	var conRodSlider = document.getElementById("animationSpeed");
-	conRodSlider.oninput = function() {
+	var animationSlider = document.getElementById("animationSpeed");
+	animationSlider.oninput = function() {
   		var output = document.getElementById("animationSpan");
 		output.innerHTML = this.value;
 
 		clearInterval(myInterval);
 		myInterval = setInterval(mainloop,  this.value);
 	}
+
 
 
 
