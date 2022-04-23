@@ -2,250 +2,812 @@
 
 <script>
 
-	var toothSize = 10;
+var paused = false;
 
-	var ringTeeth = 40;
+var drawingVars = {
+	"camAngle": 0,
+	"scale": 0.3,
+	"flywheelAngle": Math.PI/2,
+	"planetAngle": Math.PI/2
+}
+
+var calculatedVars = {
+"rvl": {"name": "True Valve Lift", "value": 0, "type": "length"},
+"vlt": {"name": "Ideal Valve Lift", "value": 0, "type": "length"},
+"pis": {"name": "Piston Stroke", "value": 0, "type": "length"},
+"cra": {"name": "Con Rod Angle", "value": 0, "type": "angle"},
+"rgd": {"name": "Ring Gear Diameter", "value": 0, "type": "length"},
+"pgd": {"name": "Planet Gear Diameter", "value": 0, "type": "length"},
+"lsr": {"name": "Long Stroke Length", "value": 0, "type": "length"},
+"ssr": {"name": "Short Stroke Length", "value": 0, "type": "length"}
+}
+
+
+var currentUnits = {
+	"length": "mm",
+	"angle": "degrees",
+	"pressure": "MPa",
+	"speed": "m/s",
+	"rpm": "rpm",
+	"count": ""
+}
+
+
+var categoryUnits = {
+	"length": {"mm": 1, "cm": 10, "m": 1000, "in": 25.4, "ft": 304.8},
+	"angle": {"degrees": 1, "radians": Math.PI/180},
+	"pressure": {"MPa": 1},
+	"speed": {"m/s": 1},
+	"rpm": {"rpm":1}
+}
+
+var allElements = [];
+
+
+
+
+
+class CalcVar {
+  constructor(name, value, type, category, dependents, dependentsShown, activated, element) {
+    this.name = name
+    this.value = value
+    this.type = type
+    this.category = category
+    this.dependents = []
+    this.dependentsShown = dependentsShown
+    this.activated = activated
+ 	this.element = 0;
+  }
+}
+
+vars = {
+	"es": new CalcVar("Engine Speed", 1150, "rpm", "engine", [], false, false), // 1600 irl
+	"gv": new CalcVar("Gas Velocity", 2100, "speed", "engine", [], false, false),
+	"msc": new CalcVar("Material Stress Constant", 0.42, "count", "engine", [], false, false),
+	"mas": new CalcVar("Max Allowable Stress", 57.5, "pressure", "engine", [], false, false),
+
+	"npt": new CalcVar("Planet Teeth", 104, "count", "planetary", [], false, false), // 104 irl
+	"nrt": new CalcVar("Ring Teeth", 156, "count", "planetary", [], false, false), // 156 irl
+	"pts": new CalcVar("Tooth Size", 13.55, "count", "planetary", [], false, false),
+
+	"cao": new CalcVar("Con Rod Attachment Offset", 150, "length", "cylinder", [], false, false),
+	"crl": new CalcVar("Con Rod Length", 810, "length", "cylinder", [], false, false), 
+	"cdi": new CalcVar("Piston Diameter", 83, "length", "cylinder", [], false, false), // 83 irl
+	"cht": new CalcVar("Piston Height", 100, "length", "cylinder", [], false, false),
+	"est": new CalcVar("Engine Stroke", 150, "length", "cylinder", [], false, false),
+	"cch": new CalcVar("Piston-Con Rod Attachment Height", 48.33, "length", "cylinder", [], false, false), // 48.33
+
+	"vbo": new CalcVar("Valve Bore", 120, "length", "valve", [], false, false),
+	"vs": new CalcVar("Valve Stroke", 120, "length", "valve", [], false, false),
+	"vsa": new CalcVar("Valve Seat Angle", 45, "angle", "valve", [], false, false),
+	"vsl": new CalcVar("Valve Stem Length", 120, "length", "valve", [], false, false),
+	"mgp": new CalcVar("Max Gas Pressure", 6, "length", "valve", [], false, false), // 120 N/mm2
+	"mps": new CalcVar("Mean Piston Speed", 275, "speed", "valve", [], false, false),
+	"evt": new CalcVar("Exhaust Valve Temperature", 120, "length", "valve", [], false, false),
+
+	"pdi": new CalcVar("Port Diameter", 1, "length", "valve", ["vbo", "mps", "gv"], true, false),
+	"vlt": new CalcVar("Valve Lift", 1, "length", "valve", ["pdi", "vsa"], true, false),
+	"vdt": new CalcVar("Valve Disc Thickness", 1, "length", "valve", ["msc", "pdi", "mgp", "mas"], true, false),
+	"vhd": new CalcVar("Valve Head Diameter", 1, "length", "valve", ["pdi", "vdt", "vsa"], true, false),
+	"vho": new CalcVar("Valve Head Opening", 1, "length", "valve", ["pdi", "vhd"], true, false),
+	"vsw": new CalcVar("Valve Seating Width", 1, "length", "valve", ["pdi", "vhd"], true, false),
+	"vsd": new CalcVar("Valve Stem Diameter", 1, "length", "valve", ["pdi"], true, false),
+
+	"btd": new CalcVar("Bucket Tappet Diameter", 40, "length", "valve", [], false, false),
+	"btl": new CalcVar("Bucket Tappet Length", 50, "length", "valve", [], false, false),
+	"vsl": new CalcVar("Valve Stem Length", 100, "length", "valve", [], false, false),
+
+	"flk": new CalcVar("Cam Flank", 35, "length", "valve", [], true, true),
+	"ncd": new CalcVar("Cam Nose Diameter", 50, "length", "valve", [], true, true),
+	"bcd": new CalcVar("Cam Base Diameter", 100, "length", "valve", [], true, true),
+	"ccp": new CalcVar("Cam Clearance Ramp", 10, "length", "valve", [], true, true)
+}
+
+
+function calculateNumericalOutputs(){
+
+	console.log("calculating");
+	for (const [key, value] of Object.entries(vars)) {
+		// console.log(key, value);
+		if (value["dependentsShown"]){
+
+			if (key == "pdi"){ // port diameter
+				vars["pdi"].value = vars["cdi"].value * Math.sqrt(vars["mps"].value/vars["gv"].value)
+
+			} else if (key == "vlt"){ // valve lift
+				vars["vlt"].value = 0.25*vars["pdi"].value/Math.cos(vars["vsa"].value*Math.PI/180)
+				calculatedVars["vlt"].value = vars["vlt"].value;
+				vars["vlt"].value = vars["vlt"].value;
+			} else if (key == "vdt"){ // valve disc thickness
+				console.log("calc vdt")
+				console.log("mgp", vars.mgp.value);
+				vars["vdt"].value = vars["msc"].value*vars["pdi"].value*Math.sqrt(vars["mgp"].value/vars["mas"].value)
+				console.log(vars.vdt.value);
+			} else if (key == "vhd"){ // valve head diameter
+				vars["vhd"].value = vars["pdi"].value+2*(vars["vdt"].value * Math.sin((90-vars["vsa"].value)*Math.PI/180));
+			} else if (key == "vho"){ // valve head opening
+				vars["vho"].value = Math.sqrt(vars["pdi"].value**2 + vars["vhd"].value**2)
+			} else if (key == "vsw"){ // valve seating width
+				vars["vsw"].value = 0.5*(vars["vhd"].value - vars["pdi"].value);
+			} else if (key == "vsd"){ // valve stem diameter
+				vars["vsd"].value = vars["pdi"].value/8+4;
+			}
+		}
 	
-	var planetTeeth = 20;
+	}
 
-	var planetAngle = 0;
+	for (const [key, value] of Object.entries(vars)) {
+		var m = value["element"];
+		m.value = value["value"];
+		console.log(m.value)
+	}
+}
+
+function updateCalculatedVars(){
+	for (const [key, value] of Object.entries(calculatedVars)) {
+		var xx = value["span"];
+		xx.innerHTML = "<br><br>" + value["name"] + ": " + value.value + " " + currentUnits[value["type"]];
+	}
+
+}
+
+
+function buildInputs(varsToMake){
+
+	i = 0;
+	console.log(varsToMake);
+	console.log(vars);
+	while (i<varsToMake.length){
+		e = vars[varsToMake[i]];
+		// console.log(e);
+		if (true){//(e["activated"]){
+
+			
+			var xx = document.createElement("SPAN");
+			xx.innerHTML = "<br><br>" + e["name"] + ": ";
+			document.body.appendChild(xx);
+			allElements.push(xx);
+
+			var x = document.createElement("INPUT");
+			x.setAttribute("type", "number");
+			x.setAttribute("value", e.value);
+			x.setAttribute("id", varsToMake[i]);
+			document.body.appendChild(x);
+			vars[varsToMake[i]].element = x;
+			allElements.push(x);
+
+			x.addEventListener("blur", function () {
+				console.log("changed");
+				
+				vars[this.id].value = parseFloat(this.value);
+				console.log("value changed", this.id)
+				console.log("elements new value", this.id, vars[this.id].value);
+				calculateNumericalOutputs();
+
+			});
+
+			var xy = document.createElement("SPAN");
+			xy.innerHTML = " " + currentUnits[e["type"]];
+			document.body.appendChild(xy);
+			allElements.push(xy);
+			
+		}
+		i+=1;
+
+	}
+}
+
+
+
+
+	function buildCalculatedVars(){
+		for (const [key, value] of Object.entries(calculatedVars)) {
+			console.log(key, value);
+			var xx = document.createElement("SPAN");
+			xx.innerHTML = "<br><br>" + value["name"] + ": " + value.value + " " + currentUnits[value["type"]];
+			document.body.appendChild(xx);
+			calculatedVars[key]["span"] = xx;
+		}
+	}
+
+
+
+
+	function buildDrawingVars(){
+		for (const [key, value] of Object.entries(drawingVars)) {
+			
+			var xx = document.createElement("SPAN");
+			xx.innerHTML = "<br><br>" + key + ": ";
+			document.body.appendChild(xx);
+			allElements.push(xx);
+
+			var x = document.createElement("INPUT");
+			x.setAttribute("type", "number");
+			x.setAttribute("value", value);
+			x.setAttribute("id", key);
+			document.body.appendChild(x);
+			allElements.push(x);
+			
+			x.addEventListener("blur", function () {
+				console.log("changed");
+				drawingVars[this.id] = parseFloat(this.value);
 	
-	var knobDist = 30;
+			});
+		}
+	}
 
-	var conRodLength = 200;
 
-	var strokeDataPoints = [];
 
-	var center = [500, 400];
+	calculateNumericalOutputs();
 
-	var startGraph = [0, 750];
 
-	var lastFullRotation = 0;
 
-	var planetRotation = 0;
 
-	var rotationAmount = 0.04;
+
 
 	function mainloop(){
+		// clearInterval(myInterval);
+		const canvas = document.getElementById('myCanvas');
+		const ctx = canvas.getContext('2d');
+		h = canvas.height;
+		w = canvas.width;
+		ctx.clearRect(0, 0, w, h);
+
+		scale = drawingVars["scale"]
 
 
-		// lower the number, the faster it spins
-
-
-//      for 80, 20: ?
-
-// 		for 60, 20: 2 -> 3
-
-//      for 40, 20: 1 -> 2
-
-//		for 30, 20: 0.5 -> 1.5
-
-		planetRotation += rotationAmount * (ringTeeth/planetTeeth - 1);
-		planetAngle += rotationAmount;
-
-
-		var c = document.getElementById("myCanvas");
-		var ctx = c.getContext("2d");
-		ctx.clearRect(0, 0, c.width, c.height);
-		
+		planetaryHeight = vars["nrt"].value*vars["pts"].value/Math.PI;
+		conRodHeight = vars["crl"].value - vars["cao"].value;
+		valveHeight = vars["ncd"].value/2 + vars["bcd"].value/2 + vars["vsl"].value + vars["vdt"].value + vars["vsw"].value + vars["btl"].value;
+		totalHeight = planetaryHeight + conRodHeight + valveHeight;
 		
 
+		center = [w/2,h/2+valveHeight/2];
+
+		drawValve(ctx, [center[0]-vars["cdi"].value*scale/2, center[1]-(totalHeight-valveHeight)*scale], scale, drawingVars["camAngle"], Math.PI/2);
+
+		drawValve(ctx, [center[0]+vars["cdi"].value*scale/2, center[1]-(totalHeight-valveHeight)*scale], scale, drawingVars["camAngle"]+Math.PI/2, Math.PI/2);
+		
+		drawPlanetary(ctx, [center[0], center[1]+(totalHeight-conRodHeight-planetaryHeight)*scale], scale, drawingVars["planetAngle"], drawingVars["flywheelAngle"]);
+
+		drawingVars["flywheelAngle"] += 0.05;
+		drawingVars["planetAngle"] -= 0.05 * (vars["nrt"].value/vars["npt"].value-1);
+
+
+
+		drawingVars["camAngle"] = drawingVars["flywheelAngle"]/2;
+
+
+		updateCalculatedVars();
+	}
+
+
+
+
+
+	function drawPlanetary(ctx, center, scale, planetAngle, flywheelAngle){
+		ts = vars["pts"].value*scale; // tooth size
+		pt = vars["npt"].value; // planet teeth
+		pd = pt*ts / Math.PI; // planet diameter
+		rt = vars["nrt"].value; // ring teeth
+		rd = rt*ts / Math.PI; // ring diameter
+		ao = vars["cao"].value*scale; // attachment offset
+		crl = vars["crl"].value*scale; // con rod length
+		cdi = vars["cdi"].value*scale;// cylidner diameter
+		cht = vars["cht"].value*scale;// cylinder height
+		cch = vars["cch"].value*scale;// cyliner attachment
+
+		calculatedVars["pgd"].value = pd/scale;
+		calculatedVars["rgd"].value = rd/scale;
+
+
+		planetCenter = [center[0]+(rd-pd)/2*Math.cos(flywheelAngle), center[1]+ (rd-pd)/2*Math.sin(flywheelAngle)]
+		attachmentPoint = [planetCenter[0]+ao*Math.cos(planetAngle), planetCenter[1]+ ao*Math.sin(planetAngle)]
 
 		// draw ring
-		var ringSize = toothSize * ringTeeth / Math.PI;
-		drawCircle(center[0], center[1], ringTeeth, 0, "#FFFFFF", 20);
-
-
+		planetToothAngle = 2*Math.PI/rt;
+		a = planetToothAngle/2;
+		ctx.beginPath();
+		while (a<=2*Math.PI+planetToothAngle){
+			ctx.arc(center[0], center[1], rd/2-ts/2, a, a); // innner
+			a+=planetToothAngle*0.5;
+			ctx.arc(center[0], center[1], rd/2+ts/2, a, a); // outer
+			ctx.arc(center[0], center[1], rd/2+ts/2, a, a);
+			a+=planetToothAngle*0.5;
+		}
+		ctx.stroke();
 
 		// draw planet
-		var planetSize = toothSize * planetTeeth / Math.PI;
+		ringToothAngle = 2*Math.PI/pt;
 
-
-		// ring has 2x teeth as planet, it does rotation = 2 * planet angle
-
-
-		// planetRotation =  (ringTeeth / planetTeeth) / 2 * planetAngle;
-
-
-		if (planetRotation > lastFullRotation + Math.PI*2) { 
-			console.log("rotation", lastFullRotation / Math.PI/2);
-			lastFullRotation += Math.PI*2;
-		}
-
-		var offsetX = Math.sin(planetAngle) * ringSize - Math.sin(planetAngle) * planetSize;
-		var offsetY = Math.cos(planetAngle) * ringSize - Math.cos(planetAngle) * planetSize;
-
-		var planetX = center[0] + offsetX;
-		var planetY = center[1] + offsetY;
-
-		drawCircle(planetX, planetY, planetTeeth, planetRotation, "#696969", 10);
-
-
-		
-		// if (planetAngle > Math.PI * 2){
-		// 	planetAngle = planetAngle - Math.PI*2;
-		// }
-
-		// draw knob
-		var knobLocationX = planetX + Math.cos(planetRotation) * knobDist;
-		var knobLocationY = planetY + Math.sin(planetRotation) * knobDist;
+		a=planetAngle;
 		ctx.beginPath();
-		ctx.arc(knobLocationX, knobLocationY, 10, 0, 2 * Math.PI);
-		ctx.lineWidth = 1;
-		ctx.fill();
+		while (a<=2*Math.PI+planetAngle+ringToothAngle){
+			ctx.arc(planetCenter[0], planetCenter[1], pd/2-ts/2, a, a); // innner
+			a+=ringToothAngle*0.5;
+			ctx.arc(planetCenter[0], planetCenter[1], pd/2+ts/2, a, a); // outer
+			ctx.arc(planetCenter[0], planetCenter[1], pd/2+ts/2, a, a);
+			a+=ringToothAngle*0.5;
+		}
+		// ctx.arc(planetCenter[0], planetCenter[1], pd/2, 0, Math.PI*2);
 		ctx.stroke();
+
+		// draw attachment
+		ctx.beginPath();
+		ctx.arc(attachmentPoint[0], attachmentPoint[1], 5, 0, Math.PI*2);
+		ctx.stroke();
+
 
 
 		// draw con rod
-		var conRodX = center[0]
-		var difX = conRodX - knobLocationX;
+		var difX = center[0]-attachmentPoint[0]
+		var difY = Math.sqrt(crl**2 - difX**2);
 
-		var difY = Math.sqrt((conRodLength * conRodLength) - (difX * difX));
-		// console.log(difY);
-		// console.log(Math.sqrt(difX*difX + difY*difY));
-		var conRodY = knobLocationY + difY;
-
-		ctx.beginPath();
-		ctx.strokeStyle = "#694206"
-		ctx.moveTo(knobLocationX, knobLocationY);
-		// ctx.lineTo(conRodX, conRodY);
-
-		// ctx.moveTo(knobLocationX, knobLocationY);
-		ctx.lineTo(knobLocationX+difX, knobLocationY+difY);
-		ctx.lineWidth = 10
-		ctx.stroke();
-		strokeDataPoints.push(difY);
-		if (strokeDataPoints.length > 600) {
-			strokeDataPoints.shift();
+		// console.log(difY, difX[0], crl);
+		if (difX != 0){
+			calculatedVars["cra"].value = Math.abs(Math.atan(difY/difX) * 180 / Math.PI);
+		} else {
+			calculatedVars["cra"].value = 0;
 		}
 
-		drawGraph();
 
-		// console.log(strokeDataPoints);
-	}
+		ht = attachmentPoint[1]-difY;
+		if (htIncreasing && ht < lastHt){ 
+			htIncreasing = false;
+			bdc = ht;
+			console.log("at bdc", tdc, bdc);
+			if (Math.abs(tdc-bdc)>calculatedVars["lsr"].value*scale || calculatedVars["lsr"].value == 0){
+				if (tdc!=0 && bdc!=0){
+					console.log("updating lsr")
+					calculatedVars["lsr"].value = Math.abs(tdc-bdc);
 
-	function drawGraph() {
+				}
+			} if (Math.abs(tdc-bdc)<calculatedVars["ssr"].value*scale || calculatedVars["ssr"].value==0){
+				if (tdc!=0 && bdc!=0){
+					console.log("updating ssr")
+					calculatedVars["ssr"].value = Math.abs(tdc-bdc);
+				}
+			}
 
-		var c = document.getElementById("myCanvas");
-		var ctx = c.getContext("2d");
-		ctx.clearRect(0, 750, c.width, c.height);
+			if (document.getElementById("pausewhenTDC").checked){
+				togglePause();
+			}
+		} else if (!htIncreasing && ht > lastHt){
+			tdc = ht;
+			console.log("at tdc", tdc, bdc);
+			htIncreasing = true;
 
-
-
-		graphMax = Math.max(...strokeDataPoints);
-
-		graphMin = Math.min(...strokeDataPoints);
-
-
-		graphRange = graphMax - graphMin;
-		
-
-		var i = 0;
-		ctx.beginPath();
-		ctx.moveTo(startGraph[0], startGraph[1] + (strokeDataPoints[0]-graphMin)/graphRange * 100);
-
-		while (i< strokeDataPoints.length) {
-			ctx.lineTo(startGraph[0] + i*2, (strokeDataPoints[i]-graphMin)/graphRange * 100 + startGraph[1]);
-			i += 1;
+			if (document.getElementById("pausewhenTDC").checked){
+				togglePause();
+			}
 		}
 
+		if (tdc<ht){
+			maxTDC = tdc;
+		}
+
+		// console.log(lastHt);
+		// lastHt = attachmentPoint[1]-center[1];// + difY;
+		
+		lastHt = ht;
+		ctx.beginPath();
+		ctx.lineWidth = 46.365*scale;
+		ctx.moveTo(attachmentPoint[0], attachmentPoint[1]); // attachment point
+		ctx.lineTo(center[0], attachmentPoint[1]-difY); // top
 		ctx.stroke();
 
-	}
-
-
-
-
-	function drawCircle(x, y, numTeeth, angle, fillColor, line_width){
-		var c = document.getElementById("myCanvas");
-		var ctx = c.getContext("2d");
-		
-		var circSize = numTeeth * toothSize / Math.PI;
-
+		// draw piston
 		ctx.beginPath();
-		
-
-		ctx.arc(x, y, circSize, 0, 2 * Math.PI);
+		ctx.rect(center[0]-cdi/2, attachmentPoint[1]-difY-cch, cdi, cht);
 		ctx.lineWidth = 1;
-		ctx.fillStyle = fillColor;
+		ctx.stroke();
+
+
+		// draw cylinder
+		// ctx.beginPath();
+		// ctx.rect(center[0]-cdi/2, bdc, cdi, -100-cht);
+		// ctx.stroke();
+
+
+
+	}
+
+		// cdi = vars["cdi"].value*scale;// cylinder diameter
+		// cht = vars["cht"].value*scale;// cylinder height
+		// cch = vars["cch"].value*scale;// cyliner attachment
+
+	lastHt = 0;
+	htIncreasing = true;
+	bdc = 0;
+	tdc = 0;
+	maxTDC = 0;
+
+
+
+
+
+
+
+
+	function drawValve(ctx, center, scale, orientation, edgeAngle){
+
+		flank = vars["flk"].value*scale;
+		nd = vars["ncd"].value*scale; // nose diameter
+		bd = vars["bcd"].value*scale; // base circle diameter
+		cr = vars["ccp"].value*scale// clearance ramp
+
+		btd = vars["btd"].value*scale;
+		btl = vars["btl"].value*scale;
+		vsl = vars["vsl"].value*scale;
+		vho = vars["vho"].value*scale; // valve head opening
+		// console.log(btl)
+
+
+		vsd = vars["vsd"].value*scale; // valve stem diameter
+		vdt = vars["vdt"].value*scale; // valve disc thickness
+		var vsw = vars["vsw"].value*scale; // valve seating width
+		pdi = vars["pdi"].value*scale;
+		var vht = vsw; // valve head thickness
+		vhd = vars["vhd"].value*scale;
+
+		realCenter = [center[0], center[1]];
+		center = [0,0];
+
+		// clearance ramp
+		a = Math.sqrt((bd/2)**2 - cr**2);
+		// a = 30
+		theta = Math.atan((cr+flank)/(nd/2-a))+Math.PI/2;
+		// theta = Math.PI*0.1
+		rightAngleFromTheta = Math.PI*0.5 - theta;
+
+		pt1 = [center[0] - a*Math.cos(theta), center[1] - a*Math.sin(theta)]; // tangent point
+
+		
+		pt2 = [pt1[0]-cr*Math.sin(theta), pt1[1]+cr*Math.cos(theta)];
+		pt3 = [pt1[0]+cr*Math.sin(theta), pt1[1]-cr*Math.cos(theta)];
+
+		pt4 = [pt3[0]+flank*Math.sin(theta), pt3[1]-flank*Math.cos(theta)];
+
+		n_center = [pt4[0] + nd/2*Math.cos(theta), pt4[1] + (nd/2)*Math.sin(theta)];
+
+		theta1 = Math.atan((pt2[1]-center[1])/(pt2[0]-center[0]))
+
+
+
+		b = Math.sqrt((center[1]-n_center[1])**2 - ((bd-nd)/2)**2)
+		theta2 = Math.PI - Math.atan((bd-nd)/2/b)
+
+		
+		pt5 = [center[0] - bd/2*Math.cos(theta2), center[1] - bd/2*Math.sin(theta2)]; // tangent point
+		pt6 = [n_center[0] - nd/2*Math.cos(theta2), n_center[1] - nd/2*Math.sin(theta2)]
+
+
+		shortestLength = bd/2;
+		longestLength = Math.sqrt((center[0]-n_center[0])**2 + (center[1]-n_center[1]))**2 + nd/2;
+		trueValveLift = longestLength-shortestLength;
+		calculatedVars["rvl"].value = Math.abs(trueValveLift);
+
+		pt1 = rotate(center, pt1, orientation);
+		pt2 = rotate(center, pt2, orientation);
+		pt3 = rotate(center, pt3, orientation);
+		pt4 = rotate(center, pt4, orientation);
+		pt5 = rotate(center, pt5, orientation);
+		pt6 = rotate(center, pt6, orientation);
+
+		n_center = rotate(center, n_center, orientation)
+
+		theta1 += orientation;
+		theta2 += orientation;
+		theta += orientation;
+
+
+
+		ctx.beginPath();
+
+		// base circle
+		ctx.arc(center[0]+realCenter[0], center[1]+realCenter[1], bd/2, theta2+Math.PI, theta1+Math.PI);
+		// ctx.arc(center[0], center[1], bd/2, 0, 2*Math.PI);
+		
+
+		// clearance ramp size
+		// ctx.moveTo(pt1[0], pt1[1]);
+		ctx.lineTo(pt2[0]+realCenter[0], pt2[1]+realCenter[1]);
+		ctx.lineTo(pt3[0]+realCenter[0], pt3[1]+realCenter[1]);
+		ctx.lineTo(pt4[0]+realCenter[0], pt4[1]+realCenter[1]);
+
+		// nose circle
+		ctx.arc(n_center[0]+realCenter[0], n_center[1]+realCenter[1], nd/2, theta+Math.PI, theta2+Math.PI);
+		// ctx.arc(n_center[0], n_center[1], nd/2, 0, 2*Math.PI);
+		// ctx.stroke()
+
+		// return side (normal tangent)
+		// ctx.moveTo(pt5[0], pt5[1]);
+		ctx.lineTo(pt5[0]+realCenter[0], pt5[1]+realCenter[1]);
+		ctx.lineTo(pt5[0]+realCenter[0], pt5[1]+realCenter[1]);
+		ctx.lineTo(pt6[0]+realCenter[0], pt6[1]+realCenter[1]);
+		// ctx.fill();
+		// ctx.stroke();
+
+		// ctx.beginPath();
+		ctx.fillStyle = "#800080";
 		ctx.fill();
 		ctx.stroke();
 
-		colors = ["#0000FF", "#808080", "#008000", "#800080", "#FF0000", "#FFFFFF", "#000000"];
-		strokeAngle = Math.PI * 2 / numTeeth;
-		currentAngle = angle;
-		// console.log(currentAngle, strokeAngle);
-		colorNum = 0;
 
-		strokeAngle = 2*Math.PI / numTeeth
+		len = 1000
+
 		i = 0;
-		while (i < numTeeth) {
-			ctx.beginPath();
-			ctx.strokeStyle = colors[colorNum];
-			ctx.lineWidth = line_width;
-			ctx.arc(x, y, circSize, currentAngle, currentAngle + strokeAngle);
-			
-			
-			ctx.stroke();
-
-			currentAngle += strokeAngle;
-			
-			colorNum += 1;
-			if (colorNum == colors.length) {
-				colorNum = 0;
+		lowestPoint = -1;
+		numPoints = 10;
+		while (i<numPoints){
+			pt8 = [center[0]+btd*0.5*(i/numPoints*2-1), center[1]]; // *0.5*(i/numPoints*2-1)
+			pt7 = [pt8[0]+Math.cos(edgeAngle)*len, pt8[1]+Math.sin(edgeAngle)*len];
+			l = findCamIntersection(pt7, pt2, pt4, pt6, pt8, center, nd);
+			if (l[1] > lowestPoint) {
+				lowestPoint = l[1];
 			}
 			i+=1;
-			
-
 		}
 
+		l[1] = lowestPoint + realCenter[1];
+
+	// function drawValveBody(ctx, base){
+
+		base = l;
+
+
+
 		
+
+		// make valve head opening
+		ctx.beginPath();
+		ctx.moveTo(center[0]+realCenter[0]+pdi/2, center[1]+realCenter[1]+shortestLength+btl+vsl);
+		// ctx.lineTo(center[0]+realCenter[0]+pdi/2, center[1]+realCenter[1]+shortestLength+btl+vsl);
+		ctx.lineTo(center[0]+realCenter[0]+pdi/2, center[1]+realCenter[1]+shortestLength+btl+vsl/2);
+		ctx.lineTo(center[0]+realCenter[0]-pdi/2, center[1]+realCenter[1]+shortestLength+btl+vsl/2);
+		ctx.lineTo(center[0]+realCenter[0]-pdi/2, center[1]+realCenter[1]+shortestLength+btl+vsl);
+
+		ctx.lineTo(center[0]+realCenter[0]-pdi/2-vsw, center[1]+realCenter[1]+shortestLength+btl+vsl+vsw); // fillet
+
+
+		// d3 (bottom, inside cylinder)
+		ctx.lineTo(center[0]+realCenter[0]-vho/2, center[1]+realCenter[1]+shortestLength+btl+vsl+vsw);
+		ctx.lineTo(center[0]+realCenter[0]-vho/2, center[1]+realCenter[1]+shortestLength+btl+vsl+vsw+vsl/2);
+		ctx.lineTo(center[0]+realCenter[0]+vho/2, center[1]+realCenter[1]+shortestLength+btl+vsl+vsw+vsl/2);
+		ctx.lineTo(center[0]+realCenter[0]+vho/2, center[1]+realCenter[1]+shortestLength+btl+vsl+vsw);
+		ctx.lineTo(center[0]+realCenter[0]+pdi/2+vsw, center[1]+realCenter[1]+shortestLength+btl+vsl+vsw);
+		ctx.lineTo(center[0]+realCenter[0]+pdi/2, center[1]+realCenter[1]+shortestLength+btl+vsl);
+		ctx.fillStyle="white";
+
+		ctx.fill();
+
+		// ctx.rect(center[0]+realCenter[0]-pdi/2, center[1]+realCenter[1]+shortestLength+btl+vsl, pdi, -vsl/2);
+		// ctx.rect(center[0]+realCenter[0]-vho/2, center[1]+realCenter[1]+shortestLength+btl+vsl+vsw, vho, vsl/2); // d3
+
+
+		ctx.stroke();
+
+
+
+
+		// make valve
+		ctx.beginPath();
+
+		ctx.rect(center[0]+realCenter[0]-btd/2, base[1], btd, btl); // bucket tappet
+
+
+		ctx.rect(center[0]+realCenter[0]-vsd/2, base[1]+btl, vsd, vsl); // valve stem
+
+
+		r = (pdi-vsd)/2;
+		// console.log(pdi, vsw);
+		ctx.moveTo(center[0]+realCenter[0]-vsd/2, base[1]+btl+vsl-r)
+		ctx.arc(center[0]+realCenter[0]-vhd/2+vsd/2, base[1]+btl+vsl-r, r, 0, Math.PI/2) // rounding left side
+
+		ctx.moveTo(center[0]+realCenter[0]+vhd/2, base[1]+btl+vsl)
+		ctx.arc(center[0]+realCenter[0]+vhd/2-vsd/2, base[1]+btl+vsl-r, r, Math.PI/2, Math.PI) // rounding right side
+
+		// thing between valve disc and stem
+		ctx.moveTo(center[0]+realCenter[0]-pdi/2, base[1]+btl+vsl); // top left
+		ctx.lineTo(center[0]+realCenter[0]+pdi/2, base[1]+btl+vsl); // top right
+		ctx.lineTo(center[0]+realCenter[0]+vhd/2, base[1]+btl+vsl+vsw); // bottom right
+		ctx.lineTo(center[0]+realCenter[0]-vhd/2, base[1]+btl+vsl+vsw); // bottom left
+		ctx.lineTo(center[0]+realCenter[0]-vhd/2+vsw, base[1]+btl+vsl); // top left
+
+		// ctx.rect(center[0]+realCenter[0]-vhd/2, base[1]+btl+vsl, vhd, vsw); 
+
+		ctx.rect(center[0]+realCenter[0]-vhd/2, base[1]+btl+vsl+vsw, vhd, vdt); // valve disc
+
+
+
+		ctx.stroke();
 
 
 	}
 
+	function findCamIntersection(pt7, pt2, pt4, pt6, pt8, center, nd){
+		l = line_intersection([pt8, pt7], [pt5, pt6])
+		if (!isBetween(pt5, pt6, l)){
+			l=-1;
+		}
+		if (!isBetween(pt8, pt7, l)){
+			l=-1;
+		}
+		if (l == -1){
+			l = line_intersection([pt8, pt7], [pt2, pt4])
+			if (!isBetween(pt2, pt4, l)){
+				l=-1
+			}
+			if (!isBetween(pt8, pt7, l)){
+				l=-1
+			}
+		}
+		if (l == -1){
+			l = line_intersection([pt8, pt7], [pt6, pt4])
+			if (!isBetween(pt6, pt4, l)){
+				l=-1
+			}
+			else if (!isBetween(pt8, pt7, l)){
+				l=-1
+			} else {
+				// in nose
+				xxx = inteceptCircleLineSeg(nd/2, n_center, pt8, pt7);
+				d1 = (xxx[0].x-pt8[0])**2 + (xxx[0].y-pt8[1])**2;
+				d2 = (xxx[1].x-pt8[0])**2 + (xxx[1].y-pt8[1])**2;
+				if (d1>d2){
+					l = [xxx[0].x, xxx[0].y];
+				} else {
+					l = [xxx[1].x, xxx[1].y];
+				}
+			}
+		}
+		if (l==-1){ // in base
+			xxx = inteceptCircleLineSeg(bd/2, center, pt8, pt7);
+			l = [xxx[0].x, xxx[0].y];
 
 
+			
+		}
+		return l;
+	}
 
-	var myInterval = setInterval(mainloop, 10);
 
+	function inteceptCircleLineSeg(rad, circleCenter, a, b){
+
+	    var a, b, c, d, u1, u2, ret, retP1, retP2, v1, v2;
+	    v1 = {};
+	    v2 = {};
+	    v1.x = b[0] - a[0];
+	    v1.y = b[1] - a[1];
+	    v2.x = a[0] - circleCenter[0];
+	    v2.y = a[1] - circleCenter[1];
+	    b = (v1.x * v2.x + v1.y * v2.y);
+	    c = 2 * (v1.x * v1.x + v1.y * v1.y);
+	    b *= -2;
+	    d = Math.sqrt(b * b - 2 * c * (v2.x * v2.x + v2.y * v2.y - rad * rad));
+	    if(isNaN(d)){ // no intercept
+	        return [];
+	    }
+	    u1 = (b - d) / c;  // these represent the unit distance of point one and two on the line
+	    u2 = (b + d) / c;    
+	    retP1 = {};   // return points
+	    retP2 = {}  
+	    ret = []; // return array
+	    if(u1 <= 1 && u1 >= 0){  // add point if on the line segment
+	        retP1.x = a[0] + v1.x * u1;
+	        retP1.y = a[1] + v1.y * u1;
+	        ret[0] = retP1;
+	    }
+	    if(u2 <= 1 && u2 >= 0){  // second add point if on the line segment
+	        retP2.x = a[0] + v1.x * u2;
+	        retP2.y = a[1] + v1.y * u2;
+	        ret[ret.length] = retP2;
+	    }       
+	    return ret;
+	}
+
+
+	function line_intersection(line1, line2){
+	    xdiff = [line1[0][0] - line1[1][0], line2[0][0] - line2[1][0]]
+	    ydiff = [line1[0][1] - line1[1][1], line2[0][1] - line2[1][1]]
+
+	    function det(a, b){
+	        return a[0] * b[1] - a[1] * b[0];
+	    }
+
+	    div = det(xdiff, ydiff)
+	    if (div == 0){
+	       return -1;
+	    }
+
+	    d = [det(line1[0], line1[1]), det(line2[0], line2[1])]
+	    x = det(d, xdiff) / div
+	    y = det(d, ydiff) / div
+	    return [x, y]
+	}
+
+
+	function isBetween(a, b, c){ // c is the point checking
+
+		if (c[0]>a[0] && c[0]>b[0]){
+			return false;
+		} if (c[1]>a[1] && c[1]>b[1]){
+			return false;
+		}
+
+		if (c[0]<a[0] && c[0]<b[0]){
+			return false;
+		} if (c[1]<a[1] && c[1]<b[1]){
+			return false;
+		}
+		return true;
+
+	}
+
+
+	function rotate(origin, point, angle){
+		d = Math.sqrt((origin[0]-point[0])**2 + (origin[1]-point[1])**2);
+		if (origin[0] == point[0]){
+			if (origin[1]>point[1]){
+				a = 3*Math.PI/2;
+			} else{
+				a = Math.PI/2;
+			}
+		
+		} else {
+
+			a = Math.atan((origin[1]-point[1]) / (origin[0]-point[0]));
+			if (origin[0] > point[0]) {
+				a+=Math.PI;
+			}
+		}
+		// console.log(a)
+
+		a += angle;
+
+		n = [origin[0] + Math.cos(a)*d, origin[1] + Math.sin(a)*d];
+
+		return n;
+
+	}
+
+
+	// var myInterval = setInterval(mainloop, 10);
+
+	function togglePause(){
+		if (paused){
+			myInterval = setInterval(mainloop, 100);
+			document.getElementById('pauseButton').value = "pause";
+			paused = false;
+		} else {
+			clearInterval(myInterval);
+			document.getElementById('pauseButton').value = "resume";
+			paused = true;
+		}
+	}
 	
 
-
-
+// given:
+// bore
+// stroke
+// valve seat angle
+// gas velocity
+// stem length
+// engine speed
+// max gas pressure
+// mean piston speed
+// exhaust valve temperature
+// material stress constant
+// allowable stress
 
 
 </script>
 
 
 
-
 <html>
 <link rel="shortcut icon" href="">
-
-	<!-- <input type="range" min="1" max="100" value="50"> -->
-tooth size: <input type="range" min="1" max="500" value="50", id="toothSize"> <span id="toothSizeSpan">50</span><br><br>
-
-
-ring teeth: <input type="range" min="1" max="1000" value="40", id="ringTeeth"> <span id="ringTeethSpan">40</span>
-....................... Ring size: <span id="ringSizeSpan">127</span>
-<br><br>
-
-planet teeth: <input type="range" min="1" max="100" value="20", id="planetTeeth"> <span id="planetTeethSpan">20</span>
-....................... Planet Size: <span id="planetSizeSpan">127</span>
-<br><br>
-
-con rod attachment point offset <input type="range" min="1" max="100" value="30", id="knobDist"> <span id="knobSpan">30</span><br><br>
-
-con rod length <input type="range" min="1" max="1000" value="200", id="conRodLen"> <span id="conRodLenSpan">200</span><br><br>
-
-animation speed <input type="range" min="1" max="500" value="10", id="animationSpeed"> <span id="animationSpan">10</span><br><br>
-
-
-<canvas id="myCanvas" width="1000px" height="1000px" style="position: absolute; background: rgb(200,200,200);">
-
-
-
+<a href="https://www.researchgate.net/publication/306070365_Diesel_Engine_Exhaust_Valve_Design_and_Optimization">Source1</a>	
 
 
 
@@ -256,93 +818,25 @@ animation speed <input type="range" min="1" max="500" value="10", id="animationS
 	
 
 
-	var toothSlider = document.getElementById("toothSize");
-	var toothSpan = document.getElementById("toothSizeSpan");
+	// buildNumericalInputs();
+	// buildNumericalOutputs();
 
-	var ringSlider = document.getElementById("ringTeeth");
-
-	var ringSliderSpan = document.getElementById("ringTeethSpan");
-	var ringSizeSpan = document.getElementById("ringSizeSpan");
-
-	var planetSizeSpan = document.getElementById("planetSizeSpan");
-
-	function resetGlobals(){
-		strokeDataPoints = [];
-		planetAngle = 0;
-		planetRotation = 0;
-		lastFullRotation = 0;	
-	}
-
-	function setSpans(){
-
-	}
-
-
-	toothSlider.oninput = function() {
-		console.log(this.value);
-		toothSpan.innerHTML = this.value;
-		toothSize = this.value / 5;
-
-		var ringSize = Math.floor(toothSize * ringTeeth / Math.PI);
-		ringSizeSpan.innerHTML = ringSize;
-
-		var planetSize = Math.floor(toothSize * planetTeeth / Math.PI);
-		planetSizeSpan.innerHTML = planetSize;
-		resetGlobals();
-	}
-
-
-	ringSlider.oninput = function() {
-		ringSliderSpan.innerHTML = this.value;
-		ringTeeth = this.value;
-		var ringSize = Math.floor(toothSize * ringTeeth / Math.PI);
-		ringSizeSpan.innerHTML = ringSize;
-		resetGlobals();
-	}
-
+	// buildDrawingInputs();
 	
-
-
-	var planetSlider = document.getElementById("planetTeeth");
-	planetSlider.oninput = function() {
-  		var output = document.getElementById("planetTeethSpan");
-		output.innerHTML = this.value;
-		planetTeeth = this.value;
-
-		var planetSize = Math.floor(toothSize * planetTeeth / Math.PI);
-		planetSizeSpan.innerHTML = planetSize;
-		resetGlobals();
-	}
-
-	var knobSlider = document.getElementById("knobDist");
-	knobSlider.oninput = function() {
-  		var output = document.getElementById("knobSpan");
-		output.innerHTML = this.value;
-		knobDist = this.value;
-		resetGlobals();
-	}
-
-	var conRodSlider = document.getElementById("conRodLen");
-	conRodSlider.oninput = function() {
-  		var output = document.getElementById("conRodLenSpan");
-		output.innerHTML = this.value;
-		conRodLength = this.value;
-		resetGlobals();
-	}
-
-	var animationSlider = document.getElementById("animationSpeed");
-	animationSlider.oninput = function() {
-  		var output = document.getElementById("animationSpan");
-		output.innerHTML = this.value;
-
-		clearInterval(myInterval);
-		myInterval = setInterval(mainloop,  this.value);
-	}
-
-
-
-
-
-
+	buildDrawingVars();
+	calculateNumericalOutputs();
+	buildInputs(Object.keys(vars));
+	buildCalculatedVars();
 
 </script>
+<html>
+<br>
+<input type="button", id="pauseButton" value="pause" onclick="togglePause();"><br>
+Pause at TDC or BDC: <input type="checkbox", id="pausewhenTDC"><br><br>
+
+<canvas id="myCanvas" width="1000px" height="1000px" style="background: rgb(200,200,200);">
+</html>
+<script>
+var myInterval = setInterval(mainloop, 100);
+	
+	</script>
