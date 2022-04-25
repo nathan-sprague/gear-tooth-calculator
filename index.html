@@ -8,7 +8,9 @@ var drawingVars = {
 	"camAngle": 0,
 	"scale": 0.3,
 	"flywheelAngle": Math.PI/2,
-	"planetAngle": Math.PI/2
+	"planetAngle": Math.PI/2,
+	"time delay": 100,
+	"calc angle change": Math.PI/12
 }
 
 var calculatedVars = {
@@ -76,6 +78,7 @@ vars = {
 	"cht": new CalcVar("Piston Height", 100, "length", "cylinder", [], false, false),
 	"est": new CalcVar("Engine Stroke", 150, "length", "cylinder", [], false, false),
 	"cch": new CalcVar("Piston-Con Rod Attachment Height", 48.33, "length", "cylinder", [], false, false), // 48.33
+	"crw": new CalcVar("Con rod width", 46.365, "length", "cylinder", [], false, false), // 46.365
 
 	"vbo": new CalcVar("Valve Bore", 120, "length", "valve", [], false, false),
 	"vs": new CalcVar("Valve Stroke", 120, "length", "valve", [], false, false),
@@ -270,8 +273,8 @@ function buildInputs(varsToMake){
 		
 		drawPlanetary(ctx, [center[0], center[1]+(totalHeight-conRodHeight-planetaryHeight)*scale], scale, drawingVars["planetAngle"], drawingVars["flywheelAngle"]);
 
-		drawingVars["flywheelAngle"] += 0.05;
-		drawingVars["planetAngle"] -= 0.05 * (vars["nrt"].value/vars["npt"].value-1);
+		drawingVars["flywheelAngle"] += drawingVars["calc angle change"];
+		drawingVars["planetAngle"] -= drawingVars["calc angle change"] * (vars["nrt"].value/vars["npt"].value-1);
 
 
 
@@ -372,6 +375,7 @@ function buildInputs(varsToMake){
 			if (document.getElementById("pausewhenTDC").checked){
 				togglePause();
 			}
+
 		} else if (!htIncreasing && ht > lastHt){
 			tdc = ht;
 			console.log("at tdc", tdc, bdc);
@@ -389,12 +393,13 @@ function buildInputs(varsToMake){
 		// console.log(lastHt);
 		// lastHt = attachmentPoint[1]-center[1];// + difY;
 		
+		// con rod
 		lastHt = ht;
-		ctx.beginPath();
-		ctx.lineWidth = 46.365*scale;
-		ctx.moveTo(attachmentPoint[0], attachmentPoint[1]); // attachment point
-		ctx.lineTo(center[0], attachmentPoint[1]-difY); // top
-		ctx.stroke();
+		// ctx.beginPath();
+		// ctx.lineWidth = vars.crw.value*scale;
+		// ctx.moveTo(attachmentPoint[0], attachmentPoint[1]); // attachment point
+		// ctx.lineTo(center[0], attachmentPoint[1]-difY); // top
+		// ctx.stroke();
 
 		// draw piston
 		ctx.beginPath();
@@ -402,11 +407,32 @@ function buildInputs(varsToMake){
 		ctx.lineWidth = 1;
 		ctx.stroke();
 
-
+		cylinderBottom = center[1] + (rd-pd)/2 + ao - crl
+		
+		// cch = cylinder attachment
+		// cht = cylidner height
 		// draw cylinder
-		// ctx.beginPath();
-		// ctx.rect(center[0]-cdi/2, bdc, cdi, -100-cht);
-		// ctx.stroke();
+		ctx.beginPath();
+		ctx.rect(center[0]-cdi/2, cylinderBottom-cch+cht, cdi, -200);
+		ctx.stroke();
+
+		// var difX = center[0]-attachmentPoint[0]
+		// var difY = Math.sqrt(crl**2 - difX**2);
+
+		// tdc 
+		tdcAngle = Math.PI + 4/3 * Math.PI + 1/3*Math.PI*ao/pd/2;
+		centerToAtchPt = (rd-pd)/2+ao;
+		tdcAtchPtY = center[1] - centerToAtchPt*Math.cos(tdcAngle);
+		tdcAtchPtXdif = centerToAtchPt*Math.sin(tdcAngle);
+		tdcConRodY = tdcAtchPtY - Math.sqrt(crl**2 - tdcAtchPtXdif**2);
+		tdcPt = 0;
+
+		ctx.beginPath();
+		ctx.rect(0, tdcAtchPtY, 600, 1);
+		ctx.stroke();
+		ctx.beginPath();
+		ctx.rect(center[0]+tdcAtchPtXdif, 0, 1, 900);
+		ctx.stroke();
 
 
 
@@ -421,10 +447,6 @@ function buildInputs(varsToMake){
 	bdc = 0;
 	tdc = 0;
 	maxTDC = 0;
-
-
-
-
 
 
 
@@ -832,11 +854,11 @@ function buildInputs(varsToMake){
 <html>
 <br>
 <input type="button", id="pauseButton" value="pause" onclick="togglePause();"><br>
-Pause at TDC or BDC: <input type="checkbox", id="pausewhenTDC"><br><br>
+Pause at TDC or BDC: <input type="checkbox" checked id="pausewhenTDC"><br><br>
 
 <canvas id="myCanvas" width="1000px" height="1000px" style="background: rgb(200,200,200);">
 </html>
 <script>
-var myInterval = setInterval(mainloop, 100);
+var myInterval = setInterval(mainloop, drawingVars["time delay"]);
 	
 	</script>

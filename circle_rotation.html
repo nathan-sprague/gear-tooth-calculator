@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+
+<script>
+
+var paused = false;
+
+flywheelAngle = 0;
+planetAngle = 0;
+nrt = 60;
+npt = 40;
+flywheelLocked = true;
+planetLocked = false;
+extend = false;
+
+	function mainloop(){
+		// clearInterval(myInterval);
+		const canvas = document.getElementById('myCanvas');
+		const ctx = canvas.getContext('2d');
+		h = canvas.height;
+		w = canvas.width;
+		ctx.clearRect(0, 0, w, h);
+
+
+
+		
+		drawPlanetary(ctx, [400, 400], 1, planetAngle, flywheelAngle);
+
+		flywheelAngle += 0.05;
+		planetAngle -= 0.05 * (nrt/npt-1);
+
+	}
+
+
+
+
+
+	function drawPlanetary(ctx, center, scale, planetAngle, flywheelAngle){
+		ts = 15
+		pt = npt
+		pd = pt*ts / Math.PI;
+		rt = nrt
+		rd = rt*ts / Math.PI; // ring diameter
+		op = 40// offset point
+
+
+
+		planetCenter = [center[0]+(rd-pd)/2*Math.cos(flywheelAngle), center[1]+ (rd-pd)/2*Math.sin(flywheelAngle)]
+		attachmentPoint = [planetCenter[0]+op*Math.cos(planetAngle), planetCenter[1]+ op*Math.sin(planetAngle)]
+
+		// console.log("planet center", planetCenter)
+		// draw ring
+		planetToothAngle = 2*Math.PI/rt;
+		a = planetToothAngle/1;
+		ctx.beginPath();
+		while (a<=2*Math.PI+planetToothAngle){
+			ctx.arc(center[0], center[1], rd/2-ts/2, a, a); // innner
+			a+=planetToothAngle*0.5;
+			ctx.arc(center[0], center[1], rd/2+ts/2, a, a); // outer
+			ctx.arc(center[0], center[1], rd/2+ts/2, a, a);
+			a+=planetToothAngle*0.5;
+		}
+		ctx.stroke();
+
+		// draw planet
+		ringToothAngle = 2*Math.PI/pt;
+
+		a=planetAngle;
+		ctx.beginPath();
+		while (a<=2*Math.PI+planetAngle+ringToothAngle){
+			ctx.arc(planetCenter[0], planetCenter[1], pd/2-ts/2, a, a); // innner
+			a+=ringToothAngle*0.5;
+			ctx.arc(planetCenter[0], planetCenter[1], pd/2+ts/2, a, a); // outer
+			ctx.arc(planetCenter[0], planetCenter[1], pd/2+ts/2, a, a);
+			a+=ringToothAngle*0.5;
+		}
+		// ctx.arc(planetCenter[0], planetCenter[1], pd/2, 0, Math.PI*2);
+		ctx.stroke();
+
+
+		// ring center
+		ctx.beginPath();
+		ctx.arc(center[0], center[1], 5, 0, Math.PI*2);
+		ctx.stroke();
+
+
+		// planet attachment point
+		ctx.beginPath();
+		ctx.arc(planetCenter[0], planetCenter[1], 5, 0, Math.PI*2);
+		ctx.stroke();
+
+
+}
+	function rotate(origin, point, angle){
+		d = Math.sqrt((origin[0]-point[0])**2 + (origin[1]-point[1])**2);
+		if (origin[0] == point[0]){
+			if (origin[1]>point[1]){
+				a = 3*Math.PI/2;
+			} else{
+				a = Math.PI/2;
+			}
+		
+		} else {
+
+			a = Math.atan((origin[1]-point[1]) / (origin[0]-point[0]));
+			if (origin[0] > point[0]) {
+				a+=Math.PI;
+			}
+		}
+		// console.log(a)
+
+		a += angle;
+
+		n = [origin[0] + Math.cos(a)*d, origin[1] + Math.sin(a)*d];
+
+		return n;
+
+	}
+
+
+	// var myInterval = setInterval(mainloop, 10);
+
+	function togglePause(){
+		if (paused){
+			myInterval = setInterval(mainloop, 100);
+			document.getElementById('pauseButton').value = "pause";
+			paused = false;
+		} else {
+			clearInterval(myInterval);
+			document.getElementById('pauseButton').value = "resume";
+			paused = true;
+		}
+	}
+
+
+	
+
+
+
+
+</script>
+<html>
+<br>
+this is america, there is no reason to translate this american color page
+<input type="button", id="pauseButton" value="pause" onclick="togglePause();"><br><br>
+
+<canvas id="myCanvas" width="1000px" height="1000px" style="background: rgb(200,200,200);">
+</html>
+<script>
+var myInterval = setInterval(mainloop, 100);
+	
+	</script>

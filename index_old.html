@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+
+<script>
+
+	var toothSize = 10;
+
+	var ringTeeth = 40;
+	
+	var planetTeeth = 20;
+
+	var planetAngle = 0;
+	
+	var knobDist = 30;
+
+	var conRodLength = 200;
+
+	var strokeDataPoints = [];
+
+	var center = [500, 400];
+
+	var startGraph = [0, 750];
+
+	var lastFullRotation = 0;
+
+	var planetRotation = 0;
+
+	var rotationAmount = 0.04;
+
+	function mainloop(){
+
+
+		// lower the number, the faster it spins
+
+
+//      for 80, 20: ?
+
+// 		for 60, 20: 2 -> 3
+
+//      for 40, 20: 1 -> 2
+
+//		for 30, 20: 0.5 -> 1.5
+
+		planetRotation += rotationAmount * (ringTeeth/planetTeeth - 1);
+		planetAngle += rotationAmount;
+
+
+		var c = document.getElementById("myCanvas");
+		var ctx = c.getContext("2d");
+		ctx.clearRect(0, 0, c.width, c.height);
+		
+		
+
+
+		// draw ring
+		var ringSize = toothSize * ringTeeth / Math.PI;
+		drawCircle(center[0], center[1], ringTeeth, 0, "#FFFFFF", 20);
+
+
+
+		// draw planet
+		var planetSize = toothSize * planetTeeth / Math.PI;
+
+
+		// ring has 2x teeth as planet, it does rotation = 2 * planet angle
+
+
+		// planetRotation =  (ringTeeth / planetTeeth) / 2 * planetAngle;
+
+
+		if (planetRotation > lastFullRotation + Math.PI*2) { 
+			console.log("rotation", lastFullRotation / Math.PI/2);
+			lastFullRotation += Math.PI*2;
+		}
+
+		var offsetX = Math.sin(planetAngle) * ringSize - Math.sin(planetAngle) * planetSize;
+		var offsetY = Math.cos(planetAngle) * ringSize - Math.cos(planetAngle) * planetSize;
+
+		var planetX = center[0] + offsetX;
+		var planetY = center[1] + offsetY;
+
+		drawCircle(planetX, planetY, planetTeeth, planetRotation, "#696969", 10);
+
+
+		
+		// if (planetAngle > Math.PI * 2){
+		// 	planetAngle = planetAngle - Math.PI*2;
+		// }
+
+		// draw knob
+		var knobLocationX = planetX + Math.cos(planetRotation) * knobDist;
+		var knobLocationY = planetY + Math.sin(planetRotation) * knobDist;
+		ctx.beginPath();
+		ctx.arc(knobLocationX, knobLocationY, 10, 0, 2 * Math.PI);
+		ctx.lineWidth = 1;
+		ctx.fill();
+		ctx.stroke();
+
+
+		// draw con rod
+		var conRodX = center[0]
+		var difX = conRodX - knobLocationX;
+
+		var difY = Math.sqrt((conRodLength * conRodLength) - (difX * difX));
+		// console.log(difY);
+		// console.log(Math.sqrt(difX*difX + difY*difY));
+		var conRodY = knobLocationY - difY;
+
+		ctx.beginPath();
+		ctx.strokeStyle = "#694206"
+		ctx.moveTo(knobLocationX, knobLocationY);
+		// ctx.lineTo(conRodX, conRodY);
+
+		// ctx.moveTo(knobLocationX, knobLocationY);
+		ctx.lineTo(knobLocationX+difX, knobLocationY-difY);
+		ctx.lineWidth = 10
+		ctx.stroke();
+		strokeDataPoints.push(difY);
+		if (strokeDataPoints.length > 600) {
+			strokeDataPoints.shift();
+		}
+
+		drawGraph();
+
+		// console.log(strokeDataPoints);
+	}
+
+	function drawGraph() {
+
+		var c = document.getElementById("myCanvas");
+		var ctx = c.getContext("2d");
+		ctx.clearRect(0, 750, c.width, c.height);
+
+
+
+		graphMax = Math.max(...strokeDataPoints);
+
+		graphMin = Math.min(...strokeDataPoints);
+
+
+		graphRange = graphMax - graphMin;
+		
+
+		var i = 0;
+		ctx.beginPath();
+		ctx.moveTo(startGraph[0], startGraph[1] + (strokeDataPoints[0]-graphMin)/graphRange * 100);
+
+		while (i< strokeDataPoints.length) {
+			ctx.lineTo(startGraph[0] + i*2, (strokeDataPoints[i]-graphMin)/graphRange * 100 + startGraph[1]);
+			i += 1;
+		}
+
+		ctx.stroke();
+
+	}
+
+
+
+
+	function drawCircle(x, y, numTeeth, angle, fillColor, line_width){
+		var c = document.getElementById("myCanvas");
+		var ctx = c.getContext("2d");
+		
+		var circSize = numTeeth * toothSize / Math.PI;
+
+		ctx.beginPath();
+		
+
+		ctx.arc(x, y, circSize, 0, 2 * Math.PI);
+		ctx.lineWidth = 1;
+		ctx.fillStyle = fillColor;
+		ctx.fill();
+		ctx.stroke();
+
+		colors = ["#0000FF", "#808080", "#008000", "#800080", "#FF0000", "#FFFFFF", "#000000"];
+		strokeAngle = Math.PI * 2 / numTeeth;
+		currentAngle = angle;
+		// console.log(currentAngle, strokeAngle);
+		colorNum = 0;
+
+		strokeAngle = 2*Math.PI / numTeeth
+		i = 0;
+		while (i < numTeeth) {
+			ctx.beginPath();
+			ctx.strokeStyle = colors[colorNum];
+			ctx.lineWidth = line_width;
+			ctx.arc(x, y, circSize, currentAngle, currentAngle + strokeAngle);
+			
+			
+			ctx.stroke();
+
+			currentAngle += strokeAngle;
+			
+			colorNum += 1;
+			if (colorNum == colors.length) {
+				colorNum = 0;
+			}
+			i+=1;
+			
+
+		}
+
+		
+
+
+	}
+
+
+
+
+	var myInterval = setInterval(mainloop, 10);
+
+	
+
+
+
+
+
+</script>
+
+
+
+
+<html>
+<link rel="shortcut icon" href="">
+
+	<!-- <input type="range" min="1" max="100" value="50"> -->
+tooth size: <input type="range" min="1" max="500" value="50", id="toothSize"> <span id="toothSizeSpan">50</span><br><br>
+
+
+ring teeth: <input type="range" min="1" max="1000" value="40", id="ringTeeth"> <span id="ringTeethSpan">40</span>
+....................... Ring size: <span id="ringSizeSpan">127</span>
+<br><br>
+
+planet teeth: <input type="range" min="1" max="100" value="20", id="planetTeeth"> <span id="planetTeethSpan">20</span>
+....................... Planet Size: <span id="planetSizeSpan">127</span>
+<br><br>
+
+con rod attachment point offset <input type="range" min="1" max="100" value="30", id="knobDist"> <span id="knobSpan">30</span><br><br>
+
+con rod length <input type="range" min="1" max="1000" value="200", id="conRodLen"> <span id="conRodLenSpan">200</span><br><br>
+
+animation speed <input type="range" min="1" max="500" value="10", id="animationSpeed"> <span id="animationSpan">10</span><br><br>
+
+
+<canvas id="myCanvas" width="1000px" height="1000px" style="position: absolute; background: rgb(200,200,200);">
+
+
+
+
+
+
+
+</html>
+
+<script>
+	
+
+
+	var toothSlider = document.getElementById("toothSize");
+	var toothSpan = document.getElementById("toothSizeSpan");
+
+	var ringSlider = document.getElementById("ringTeeth");
+
+	var ringSliderSpan = document.getElementById("ringTeethSpan");
+	var ringSizeSpan = document.getElementById("ringSizeSpan");
+
+	var planetSizeSpan = document.getElementById("planetSizeSpan");
+
+	function resetGlobals(){
+		strokeDataPoints = [];
+		planetAngle = 0;
+		planetRotation = 0;
+		lastFullRotation = 0;	
+	}
+
+	function setSpans(){
+
+	}
+
+
+	toothSlider.oninput = function() {
+		console.log(this.value);
+		toothSpan.innerHTML = this.value;
+		toothSize = this.value / 5;
+
+		var ringSize = Math.floor(toothSize * ringTeeth / Math.PI);
+		ringSizeSpan.innerHTML = ringSize;
+
+		var planetSize = Math.floor(toothSize * planetTeeth / Math.PI);
+		planetSizeSpan.innerHTML = planetSize;
+		resetGlobals();
+	}
+
+
+	ringSlider.oninput = function() {
+		ringSliderSpan.innerHTML = this.value;
+		ringTeeth = this.value;
+		var ringSize = Math.floor(toothSize * ringTeeth / Math.PI);
+		ringSizeSpan.innerHTML = ringSize;
+		resetGlobals();
+	}
+
+	
+
+
+	var planetSlider = document.getElementById("planetTeeth");
+	planetSlider.oninput = function() {
+  		var output = document.getElementById("planetTeethSpan");
+		output.innerHTML = this.value;
+		planetTeeth = this.value;
+
+		var planetSize = Math.floor(toothSize * planetTeeth / Math.PI);
+		planetSizeSpan.innerHTML = planetSize;
+		resetGlobals();
+	}
+
+	var knobSlider = document.getElementById("knobDist");
+	knobSlider.oninput = function() {
+  		var output = document.getElementById("knobSpan");
+		output.innerHTML = this.value;
+		knobDist = this.value;
+		resetGlobals();
+	}
+
+	var conRodSlider = document.getElementById("conRodLen");
+	conRodSlider.oninput = function() {
+  		var output = document.getElementById("conRodLenSpan");
+		output.innerHTML = this.value;
+		conRodLength = this.value;
+		resetGlobals();
+	}
+
+	var animationSlider = document.getElementById("animationSpeed");
+	animationSlider.oninput = function() {
+  		var output = document.getElementById("animationSpan");
+		output.innerHTML = this.value;
+
+		clearInterval(myInterval);
+		myInterval = setInterval(mainloop,  this.value);
+	}
+
+
+
+
+
+
+
+</script>
