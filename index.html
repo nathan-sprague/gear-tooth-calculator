@@ -4,24 +4,32 @@
 
 var paused = false;
 
+
+
 var drawingVars = {
 	"camAngle": 0,
 	"scale": 0.3,
 	"flywheelAngle": Math.PI/2,
 	"planetAngle": Math.PI/2,
-	"time delay": 100,
-	"calc angle change": Math.PI/12
+	"time delay": 50,
+	"calc angle change": 0.01//Math.PI/36
+	
+
 }
 
 var calculatedVars = {
 "rvl": {"name": "True Valve Lift", "value": 0, "type": "length"},
 "vlt": {"name": "Ideal Valve Lift", "value": 0, "type": "length"},
-"pis": {"name": "Piston Stroke", "value": 0, "type": "length"},
-"cra": {"name": "Con Rod Angle", "value": 0, "type": "angle"},
+"cra": {"name": "Transmission Angle", "value": 0, "type": "angle"},
+"mta": {"name": "Minimum Transmission Angle", "value": 0, "type": "angle"},
 "rgd": {"name": "Ring Gear Diameter", "value": 0, "type": "length"},
 "pgd": {"name": "Planet Gear Diameter", "value": 0, "type": "length"},
 "lsr": {"name": "Long Stroke Length", "value": 0, "type": "length"},
-"ssr": {"name": "Short Stroke Length", "value": 0, "type": "length"}
+"ssr": {"name": "Short Stroke Length", "value": 0, "type": "length"},
+"cpi": {"name": "Cylinder-Piston Intersection Length", "value": 0, "type": "length"},
+"rcb": {"name": "Ring Center to Lowest BDC", "value": 0, "type": "length"},
+"msd": {"name": "Measured Distance", "value": 0, "type": "length"}
+
 }
 
 
@@ -70,18 +78,14 @@ vars = {
 
 	"npt": new CalcVar("Planet Teeth", 104, "count", "planetary", [], false, false), // 104 irl
 	"nrt": new CalcVar("Ring Teeth", 156, "count", "planetary", [], false, false), // 156 irl
-	"pts": new CalcVar("Tooth Size", 13.55, "count", "planetary", [], false, false),
+	"pts": new CalcVar("Tooth Size", 13.3, "count", "planetary", [], false, true),
 
-	"cao": new CalcVar("Con Rod Attachment Offset", 150, "length", "cylinder", [], false, false),
-	"crl": new CalcVar("Con Rod Length", 810, "length", "cylinder", [], false, false), 
-	"cdi": new CalcVar("Piston Diameter", 83, "length", "cylinder", [], false, false), // 83 irl
-	"cht": new CalcVar("Piston Height", 100, "length", "cylinder", [], false, false),
 	"est": new CalcVar("Engine Stroke", 150, "length", "cylinder", [], false, false),
-	"cch": new CalcVar("Piston-Con Rod Attachment Height", 48.33, "length", "cylinder", [], false, false), // 48.33
+	
 	"crw": new CalcVar("Con rod width", 46.365, "length", "cylinder", [], false, false), // 46.365
 
 	"vbo": new CalcVar("Valve Bore", 120, "length", "valve", [], false, false),
-	"vs": new CalcVar("Valve Stroke", 120, "length", "valve", [], false, false),
+	"vs": new CalcVar("Valve Stroke", 370, "length", "valve", [], false, false),
 	"vsa": new CalcVar("Valve Seat Angle", 45, "angle", "valve", [], false, false),
 	"vsl": new CalcVar("Valve Stem Length", 120, "length", "valve", [], false, false),
 	"mgp": new CalcVar("Max Gas Pressure", 6, "length", "valve", [], false, false), // 120 N/mm2
@@ -100,10 +104,22 @@ vars = {
 	"btl": new CalcVar("Bucket Tappet Length", 50, "length", "valve", [], false, false),
 	"vsl": new CalcVar("Valve Stem Length", 100, "length", "valve", [], false, false),
 
-	"flk": new CalcVar("Cam Flank", 35, "length", "valve", [], true, true),
-	"ncd": new CalcVar("Cam Nose Diameter", 50, "length", "valve", [], true, true),
-	"bcd": new CalcVar("Cam Base Diameter", 100, "length", "valve", [], true, true),
-	"ccp": new CalcVar("Cam Clearance Ramp", 10, "length", "valve", [], true, true)
+	"flk": new CalcVar("Cam Flank", 35, "length", "valve", [], false, true),
+	"ncd": new CalcVar("Cam Nose Diameter", 50, "length", "valve", [], false, true),
+	"bcd": new CalcVar("Cam Base Diameter", 100, "length", "valve", [], false, true),
+	"ccp": new CalcVar("Cam Clearance Ramp", 10, "length", "valve", [], false, true),
+
+
+
+	"cht": new CalcVar("Piston Height", 405, "length", "cylinder", [], false, true), //+32 for 62.25 mm piston bore
+
+	"cdi": new CalcVar("Piston Diameter", 83.42, "length", "cylinder", [], false, true), // 83.42 irl
+		"cao": new CalcVar("Con Rod Attachment Offset", 150, "length", "cylinder", [], true, true),
+		"crw": new CalcVar("Con Rod width", 46.365, "length", "cylinder", [], false, true), // 46.365
+		"cch": new CalcVar("Piston-Con Rod Attachment Height", 354, "length", "cylinder", [], false, true), // 48.33
+		"crl": new CalcVar("Con Rod Length", 810, "length", "cylinder", [], false, true), // 810 irl
+		"csd": new CalcVar("cylinder Start Depth", 46.86, "length", "valve", [], false, true) //48.33
+
 }
 
 
@@ -116,14 +132,14 @@ function calculateNumericalOutputs(){
 
 			if (key == "pdi"){ // port diameter
 				vars["pdi"].value = vars["cdi"].value * Math.sqrt(vars["mps"].value/vars["gv"].value)
+				console.log("pdi val", vars["pdi"].value);
 
 			} else if (key == "vlt"){ // valve lift
 				vars["vlt"].value = 0.25*vars["pdi"].value/Math.cos(vars["vsa"].value*Math.PI/180)
 				calculatedVars["vlt"].value = vars["vlt"].value;
-				vars["vlt"].value = vars["vlt"].value;
+				console.log("valve lift", vars["vlt"].value);
+
 			} else if (key == "vdt"){ // valve disc thickness
-				console.log("calc vdt")
-				console.log("mgp", vars.mgp.value);
 				vars["vdt"].value = vars["msc"].value*vars["pdi"].value*Math.sqrt(vars["mgp"].value/vars["mas"].value)
 				console.log(vars.vdt.value);
 			} else if (key == "vhd"){ // valve head diameter
@@ -140,9 +156,16 @@ function calculateNumericalOutputs(){
 	}
 
 	for (const [key, value] of Object.entries(vars)) {
-		var m = value["element"];
-		m.value = value["value"];
-		console.log(m.value)
+		
+		m = value.activated;
+		// console.log(m);
+		if (m == true){
+			// console.log("activated", value.activated);
+			var m = value["element"];
+			m.value = value["value"];
+		}
+		// console.log(key, m.value)
+
 	}
 }
 
@@ -163,7 +186,7 @@ function buildInputs(varsToMake){
 	while (i<varsToMake.length){
 		e = vars[varsToMake[i]];
 		// console.log(e);
-		if (true){//(e["activated"]){
+		if (e["activated"]){
 
 			
 			var xx = document.createElement("SPAN");
@@ -181,6 +204,8 @@ function buildInputs(varsToMake){
 
 			x.addEventListener("blur", function () {
 				console.log("changed");
+				drawingVars["flywheelAngle"] = Math.PI/2;
+				drawingVars["planetAngle"] = Math.PI/2;
 				
 				vars[this.id].value = parseFloat(this.value);
 				console.log("value changed", this.id)
@@ -259,6 +284,30 @@ function buildInputs(varsToMake){
 		scale = drawingVars["scale"]
 
 
+
+
+		ts = vars["pts"].value*scale; // tooth size
+		pt = vars["npt"].value; // planet teeth
+		pd = pt*ts / Math.PI; // planet diameter
+		rt = vars["nrt"].value; // ring teeth
+		rd = rt*ts / Math.PI; // ring diameter
+		ao = vars["cao"].value*scale; // attachment offset
+		crl = vars["crl"].value*scale; // con rod length
+		cdi = vars["cdi"].value*scale;// cylidner diameter
+		cht = vars["cht"].value*scale;// cylinder height
+		cch = vars["cch"].value*scale;// cyliner attachment
+
+		// bdcMin = center[1] + (rd-pd)/2 - ao - crl;
+		tdcInfo = calculateTDC(ctx, 0, [0,0], rd, pd, ao, crl);
+		pauseNext = false;//checkToPause(tdcInfo);
+
+		if (document.getElementById("pausewhenTDC").checked){
+			pauseNext = checkToPause(tdcInfo);
+		}
+
+
+
+
 		planetaryHeight = vars["nrt"].value*vars["pts"].value/Math.PI;
 		conRodHeight = vars["crl"].value - vars["cao"].value;
 		valveHeight = vars["ncd"].value/2 + vars["bcd"].value/2 + vars["vsl"].value + vars["vdt"].value + vars["vsw"].value + vars["btl"].value;
@@ -273,22 +322,271 @@ function buildInputs(varsToMake){
 		
 		drawPlanetary(ctx, [center[0], center[1]+(totalHeight-conRodHeight-planetaryHeight)*scale], scale, drawingVars["planetAngle"], drawingVars["flywheelAngle"]);
 
+		if (pauseNext){
+			console.log("pausing");
+			togglePause();
+		}
+
+
+		// if (drawingVars["flywheelAngle"] < tdcAngle && drawingVars["flywheelAngle"] + drawingVars["calc angle change"] > tdcAngle){
+		// 	angleChange = 
+		// }
+
 		drawingVars["flywheelAngle"] += drawingVars["calc angle change"];
 		drawingVars["planetAngle"] -= drawingVars["calc angle change"] * (vars["nrt"].value/vars["npt"].value-1);
-
-
-
 		drawingVars["camAngle"] = drawingVars["flywheelAngle"]/2;
 
 
 		updateCalculatedVars();
+
+		// optimizeSizes(ctx, [center[0], center[1]+(totalHeight-conRodHeight-planetaryHeight)*scale], ao, flywheelAngle, planetAngle, crl, pd, rd);
+
+	}
+
+
+
+	function checkToPause(tdcInfo){
+		dif = tdcInfo[1]-Math.PI*1.5
+
+		if (drawingVars["flywheelAngle"] + drawingVars["calc angle change"] > tdcInfo[1] && drawingVars["flywheelAngle"] < tdcInfo[1]){ // tdc 1
+				angleChange = tdcInfo[1]- drawingVars["flywheelAngle"];
+				drawingVars["flywheelAngle"] += angleChange;
+				drawingVars["planetAngle"] -= angleChange * (vars["nrt"].value/vars["npt"].value-1);
+				return true;
+		}
+	
+		a = Math.PI*3.5 - dif;
+		if (drawingVars["flywheelAngle"] + drawingVars["calc angle change"] > a && drawingVars["flywheelAngle"] < a){ // tdc 2
+				angleChange = a- drawingVars["flywheelAngle"];
+				drawingVars["flywheelAngle"] += angleChange;
+				drawingVars["planetAngle"] -= angleChange * (vars["nrt"].value/vars["npt"].value-1);
+				return true;
+		}
+
+		if (drawingVars["flywheelAngle"] + drawingVars["calc angle change"] > Math.PI*4.5 && drawingVars["flywheelAngle"] < Math.PI*4.5){ // bdc 1
+			console.log("bdc 1");
+			drawingVars["planetAngle"] = Math.PI/2;
+			drawingVars["flywheelAngle"] = Math.PI/2;
+			return true;
+		}
+
+		if (drawingVars["flywheelAngle"] + drawingVars["calc angle change"] > Math.PI*2.5 && drawingVars["flywheelAngle"] < Math.PI*2.5){ // bdc 2
+			console.log("bdc 2");
+			angleDif = Math.PI * 2.5 - drawingVars["flywheelAngle"];
+			console.log(angleDif);
+			drawingVars["flywheelAngle"] = Math.PI*2.5;
+			drawingVars["planetAngle"] = Math.PI*1.5;
+			return true;
+		}
+		return false;
+	}
+
+
+function findMinTransAngle(center, ao, flywheelAngle, planetAngle, conRodLength, pd, rd){
+		d1 = (rd-pd)/2;
+		d2 = ao;
+
+		L = conRodLength;
+		crl = conRodLength;
+		b = (1-Math.sqrt(1+32*(d1/d2)**2))/(16*(d1/d2)**2);
+		flywheelAngle = Math.PI*2.5-Math.acos(b);
+		c = [center[0], center[1]];
+		centerToPlanet = (rd-pd)/2
+		pCenter = [c[0]+centerToPlanet*Math.cos(flywheelAngle), c[1]+centerToPlanet*Math.sin(flywheelAngle)];
+		estAngle = -Math.PI/2 + (flywheelAngle-Math.PI/2)/2; // alpha
+		estAngle*=-1;  
+		aoCenter = [pCenter[0]+Math.cos(estAngle)*ao, pCenter[1]+Math.sin(estAngle)*ao];
+		planetEdge = [c[0]+rd/2*Math.cos(flywheelAngle), c[1]+rd/2*Math.sin(flywheelAngle)];
+
+		difX = c[0]-aoCenter[0];
+		difY = Math.sqrt(crl**2-difX**2)
+		realConRodSpot = [c[0], aoCenter[1]-difY];
+		transAngle = Math.atan((realConRodSpot[1]-aoCenter[1]) / (realConRodSpot[0]-aoCenter[0])) + Math.PI;
+		calculatedVars["mta"].value = transAngle*180/Math.PI-180;
+		console.log("trans angle --------------->", realConRodSpot, aoCenter);
+		return [transAngle, b]
+	}
+
+	function tylerEqn2(center, ao, flywheelAngle, planetAngle, conRodLength, pd, rd, mta, b){
+		d1 = (rd-pd)/2;
+		d2 = ao;
+		theta1 = b;
+		L = conRodLength;
+		crl = conRodLength;
+
+
+		side1 = L/d1 * Math.sqrt(1/(Math.tan(mta)**2 + 1));
+
+		side2 = sin(theta1) + d2/d1*sin(theta1/2)
+
+
+	}
+
+
+	function optimizeSizes(ctx, center, ao, flywheelAngle, planetAngle, conRodLength, pd, rd){
+		togglePause();
+		
+		console.log("crl used", conRodLength/0.3)
+
+		center = [0,0]
+		// modify conRodLength and (rd-pd)/2 to minimize height
+		//keep stroke constant
+		var mta = 90;
+		i=0;
+		while (mta>65 && i<10){
+			pd *= 1.1;
+			rd *= 1.1;
+
+			let crl = findConRodLength(ctx, 92*scale, pd, rd, ao);
+
+			console.log(ao, 0, 0, crl, pd, rd)
+			
+			mta = findMinTransAngle([0,0], ao, 0, 0, crl, pd, rd) * 180 / Math.PI ;
+
+
+			console.log("min trans angle", a[0]*180/Math.PI-180);
+			
+			console.log("mta", mta);
+
+
+			// b = calculateHeight(ctx, [0,0], 0, rd, pd, ao, conRodLength)
+
+
+
+
+			console.log("height", ht/scale);
+			console.log("stroke1", b[1]/scale, "stroke2", b[2]/scale);
+			i+=1;
+		}
+	}
+
+
+	function findConRodLength(ctx, targetStroke, pd, rd, ao){
+		var error = 100000;
+		i = 0;
+		crl = 810*scale;
+		center = [0,0]
+		flywheelAngle = 0;
+		var lastCrl = crl;
+
+		while (Math.abs(error)>0.1 && i<100){
+			strokes = calculateHeight(ctx, center, flywheelAngle, rd, pd, ao, crl)
+			stroke = strokes[2];
+			newError = targetStroke-stroke;
+			// console.log("crl", crl/scale, "stroke", strokes[2]/scale);
+			console.log("new error", newError/scale);
+			if (Math.abs(error)<Math.abs(newError)){
+				crl = lastCrl;
+				break;
+			}
+
+			error = newError;
+			lastCrl = crl;
+
+			if (error>0){ // too short
+				crl*=1.1;
+			} else { // too long
+				crl*=0.9;
+			}
+
+			i+=1;
+		}
+
+		console.log("result", crl/scale);
+		return crl;
+	}
+
+
+	function calculateHeight(ctx, center, flywheelAngle, rd, pd, ao, crl) {
+		tdc = calculateTDC(ctx, flywheelAngle, center, rd, pd, ao, crl)[0]
+		bdcMax = (rd-pd)/2 + ao - crl;
+		bdcMin = (rd-pd)/2 - ao - crl;
+
+		// console.log("tdc, bdcmax, bdcmin", tdc, bdcMax, bdcMin);
+		stroke1 = Math.abs(tdc-bdcMax);
+		stroke2 = Math.abs(tdc-bdcMin);
+
+
+		cht = vars["cht"].value*scale;// cylinder height
+		csd = vars["csd"].value*scale;// cyliner start depth
+
+
+		tdc += -cht + csd
+
+		ht = center[1]-tdc + rd/2
+
+
+		
+
+		return [ht, stroke1, stroke2];//bdcMax; //+ rd/2;
 	}
 
 
 
 
 
+
+
+
+	function tylersEqn(ctx, center, ao, flywheelAngle, planetAngle, conRodLength, pd, rd){
+		return [0,0];
+		d1 = (rd-pd)/2;
+		d2 = ao;
+		theta2 = planetAngle - Math.PI/2;
+		theta1 = flywheelAngle - Math.PI/2;
+		L = conRodLength;
+
+		d1/=scale;
+		d2/=scale;
+		L/=scale;
+
+
+		minTranAngleAngle = Math.acos((1+Math.sqrt(1+4*(8*d1/d2)**2))/(16*(d1/d2)**2));
+			
+
+
+		// console.log()
+		// d1 = 110
+		// d2 = 150
+		// L = 810
+
+		// theta1 = 224.7*Math.PI/180;
+		// theta2 = theta1/2;
+
+		// theta1 = 224.752*Math.PI/180;
+		// theta2 = theta1/2;
+		// console.log("angle", theta1/Math.PI*180);
+
+		height = -d1*Math.cos(theta1) - d2*Math.cos(theta1/2) + Math.sqrt(L**2 - (-d1*Math.sin(theta1) + d2*Math.sin(theta1/2))**2 );
+		// console.log("d1=",d1, "d2=",d2, "L=", L);
+		// console.log("height", (height-550));
+
+		
+
+		if (height>maxPt){
+			maxPt = height;
+		}
+		if (height<minPt){
+			minPt = height;
+		}
+		// console.log("big difference", (maxPt-minPt));
+
+		return height*scale;
+}
+
+
+		 	maxPt = -1000;
+	minPt = 10000;
+
+
+traDir = 1;
+
+
+
 	function drawPlanetary(ctx, center, scale, planetAngle, flywheelAngle){
+
+		drawGears = true;
+
 		ts = vars["pts"].value*scale; // tooth size
 		pt = vars["npt"].value; // planet teeth
 		pd = pt*ts / Math.PI; // planet diameter
@@ -304,36 +602,55 @@ function buildInputs(varsToMake){
 		calculatedVars["rgd"].value = rd/scale;
 
 
-		planetCenter = [center[0]+(rd-pd)/2*Math.cos(flywheelAngle), center[1]+ (rd-pd)/2*Math.sin(flywheelAngle)]
+
+
+
+		planetCenter = [center[0]+(rd-pd)/2*Math.cos(flywheelAngle), center[1]+ (rd-pd)/2*Math.sin(flywheelAngle)];
 		attachmentPoint = [planetCenter[0]+ao*Math.cos(planetAngle), planetCenter[1]+ ao*Math.sin(planetAngle)]
 
 		// draw ring
+		ctx.beginPath();
+		ctx.arc(center[0], center[1], rd/2+ts*3, 0, Math.PI*2);
+		ctx.fillStyle="yellow";
+		ctx.fill();
+
 		planetToothAngle = 2*Math.PI/rt;
 		a = planetToothAngle/2;
-		ctx.beginPath();
-		while (a<=2*Math.PI+planetToothAngle){
-			ctx.arc(center[0], center[1], rd/2-ts/2, a, a); // innner
-			a+=planetToothAngle*0.5;
-			ctx.arc(center[0], center[1], rd/2+ts/2, a, a); // outer
-			ctx.arc(center[0], center[1], rd/2+ts/2, a, a);
-			a+=planetToothAngle*0.5;
+		if (drawGears){
+			ctx.beginPath();
+			while (a<=2*Math.PI+planetToothAngle){
+				ctx.arc(center[0], center[1], rd/2-ts/2, a, a); // innner
+				a+=planetToothAngle*0.5;
+				ctx.arc(center[0], center[1], rd/2+ts/2, a, a); // outer
+				ctx.arc(center[0], center[1], rd/2+ts/2, a, a);
+				a+=planetToothAngle*0.5;
+			}
+
+			ctx.fillStyle="rgb(200,200,200)";
+			ctx.fill();
+
+			ctx.stroke();
 		}
-		ctx.stroke();
 
 		// draw planet
 		ringToothAngle = 2*Math.PI/pt;
 
 		a=planetAngle;
-		ctx.beginPath();
-		while (a<=2*Math.PI+planetAngle+ringToothAngle){
-			ctx.arc(planetCenter[0], planetCenter[1], pd/2-ts/2, a, a); // innner
-			a+=ringToothAngle*0.5;
-			ctx.arc(planetCenter[0], planetCenter[1], pd/2+ts/2, a, a); // outer
-			ctx.arc(planetCenter[0], planetCenter[1], pd/2+ts/2, a, a);
-			a+=ringToothAngle*0.5;
+
+		if (drawGears){
+			ctx.beginPath();
+			while (a<=2*Math.PI+planetAngle+ringToothAngle){
+				ctx.arc(planetCenter[0], planetCenter[1], pd/2-ts/2, a, a); // innner
+				a+=ringToothAngle*0.5;
+				ctx.arc(planetCenter[0], planetCenter[1], pd/2+ts/2, a, a); // outer
+				ctx.arc(planetCenter[0], planetCenter[1], pd/2+ts/2, a, a);
+				a+=ringToothAngle*0.5;
+			}
+			// ctx.arc(planetCenter[0], planetCenter[1], pd/2, 0, Math.PI*2);
+			ctx.fillStyle = "red";
+			ctx.fill();
+			ctx.stroke();
 		}
-		// ctx.arc(planetCenter[0], planetCenter[1], pd/2, 0, Math.PI*2);
-		ctx.stroke();
 
 		// draw attachment
 		ctx.beginPath();
@@ -347,106 +664,272 @@ function buildInputs(varsToMake){
 		var difY = Math.sqrt(crl**2 - difX**2);
 
 		// console.log(difY, difX[0], crl);
+
+		tra = calculatedVars["cra"].value;
+		newTra = Math.abs(Math.atan(difY/difX) * 180 / Math.PI);
+
+		if (tra>newTra && traDir>0){
+			traDir = -1;
+		} else 	if (tra<newTra && traDir<0){
+			traDir = 1;
+			togglePause();
+		}
+
 		if (difX != 0){
-			calculatedVars["cra"].value = Math.abs(Math.atan(difY/difX) * 180 / Math.PI);
+			calculatedVars["cra"].value = newTra
 		} else {
 			calculatedVars["cra"].value = 0;
 		}
 
 
-		ht = attachmentPoint[1]-difY;
-		if (htIncreasing && ht < lastHt){ 
-			htIncreasing = false;
-			bdc = ht;
-			console.log("at bdc", tdc, bdc);
-			if (Math.abs(tdc-bdc)>calculatedVars["lsr"].value*scale || calculatedVars["lsr"].value == 0){
-				if (tdc!=0 && bdc!=0){
-					console.log("updating lsr")
-					calculatedVars["lsr"].value = Math.abs(tdc-bdc);
 
-				}
-			} if (Math.abs(tdc-bdc)<calculatedVars["ssr"].value*scale || calculatedVars["ssr"].value==0){
-				if (tdc!=0 && bdc!=0){
-					console.log("updating ssr")
-					calculatedVars["ssr"].value = Math.abs(tdc-bdc);
-				}
-			}
 
-			if (document.getElementById("pausewhenTDC").checked){
-				togglePause();
-			}
 
-		} else if (!htIncreasing && ht > lastHt){
-			tdc = ht;
-			console.log("at tdc", tdc, bdc);
-			htIncreasing = true;
 
-			if (document.getElementById("pausewhenTDC").checked){
-				togglePause();
-			}
-		}
+		tdc = calculateTDC(ctx, flywheelAngle, center, rd, pd, ao, crl)[0];
 
-		if (tdc<ht){
-			maxTDC = tdc;
-		}
 
-		// console.log(lastHt);
-		// lastHt = attachmentPoint[1]-center[1];// + difY;
+		bdcMax = center[1] + (rd-pd)/2 + ao - crl;
+		bdcMin = center[1] + (rd-pd)/2 - ao - crl;
+
+		calculatedVars["ssr"].value = Math.abs(tdc-bdcMin)/scale;
+		calculatedVars["lsr"].value = Math.abs(tdc-bdcMax)/scale;
+
+		calculatedVars["rcb"].value = Math.abs(center[1]-bdcMin);
+
+		extraDepth = - cch + vars["csd"].value*scale;
 		
-		// con rod
-		lastHt = ht;
+
 		// ctx.beginPath();
-		// ctx.lineWidth = vars.crw.value*scale;
-		// ctx.moveTo(attachmentPoint[0], attachmentPoint[1]); // attachment point
-		// ctx.lineTo(center[0], attachmentPoint[1]-difY); // top
+		// ctx.moveTo(0, tdc);
+		// ctx.lineTo(1000, tdc);
+		// ctx.stroke()
+
+		// ctx.beginPath();
+		// ctx.moveTo(0, bdcMax);
+		// ctx.lineTo(1000, bdcMax);
 		// ctx.stroke();
+
+
+		// console.log("extr", extraDepth);
+
+
+		cylinderBottom = bdcMax+extraDepth;
+		cylinderTop = tdc - cch;
+
+		// console.log(cylinderBottom);
+
+		// draw cylinder
+		ctx.beginPath();
+		ctx.rect(center[0]-cdi/2-2, cylinderBottom, cdi+4, cylinderTop - cylinderBottom);
+		ctx.fillStyle = "blue";
+		ctx.fill();
+		ctx.stroke();
 
 		// draw piston
 		ctx.beginPath();
 		ctx.rect(center[0]-cdi/2, attachmentPoint[1]-difY-cch, cdi, cht);
 		ctx.lineWidth = 1;
+		ctx.fillStyle = "white";
+		ctx.fill();
 		ctx.stroke();
 
-		cylinderBottom = center[1] + (rd-pd)/2 + ao - crl
-		
-		// cch = cylinder attachment
-		// cht = cylidner height
-		// draw cylinder
+
+
+
+
+		ht = tylersEqn(ctx, center, ao, flywheelAngle, planetAngle, crl, pd, rd);
+		ht = center[1] - ht;
+
+
+
+		// ctx.beginPath();
+		// ctx.moveTo(0, ht);
+		// ctx.lineTo(1000, ht);
+		// ctx.stroke();
+
+
+
+
+		// draw con rod
+
 		ctx.beginPath();
-		ctx.rect(center[0]-cdi/2, cylinderBottom-cch+cht, cdi, -200);
+		// ctx.lineWidth = vars.crw.value*scale;
+		ctx.moveTo(attachmentPoint[0], attachmentPoint[1]); // attachment point
+		ctx.lineTo(center[0], attachmentPoint[1]-difY); // top
 		ctx.stroke();
 
-		// var difX = center[0]-attachmentPoint[0]
-		// var difY = Math.sqrt(crl**2 - difX**2);
+		cray = (Math.atan(difY/difX) * 180 / Math.PI)
+		offsetX = vars.crw.value*scale/2;
+		ctx.beginPath()
+		ctx.moveTo(attachmentPoint[0]+offsetX, attachmentPoint[1]); // attachment point
+		ctx.lineTo(center[0]+offsetX, attachmentPoint[1]-difY); // top
+		ctx.lineTo(center[0]-offsetX, attachmentPoint[1]-difY); // top
+		ctx.lineTo(attachmentPoint[0]-offsetX, attachmentPoint[1]);
+		ctx.lineTo(attachmentPoint[0]+offsetX, attachmentPoint[1]);
+		ctx.fillStyle="green";
+		ctx.fill();
+		ctx.stroke();
 
-		// tdc 
-		tdcAngle = Math.PI + 4/3 * Math.PI + 1/3*Math.PI*ao/pd/2;
+		
+
+		tdcAngle = 0.5*Math.PI - 0.0005 * Math.PI*ao/scale;//Math.PI + 4/3 * Math.PI + 1/3*Math.PI*ao/pd/2;
 		centerToAtchPt = (rd-pd)/2+ao;
-		tdcAtchPtY = center[1] - centerToAtchPt*Math.cos(tdcAngle);
-		tdcAtchPtXdif = centerToAtchPt*Math.sin(tdcAngle);
+		tdcAtchPtY = center[1] - centerToAtchPt*Math.sin(tdcAngle);
+		tdcAtchPtXdif = centerToAtchPt*Math.cos(tdcAngle);
 		tdcConRodY = tdcAtchPtY - Math.sqrt(crl**2 - tdcAtchPtXdif**2);
 		tdcPt = 0;
 
+
+		craa = 0.5*Math.PI - 1/3 * ao/rd * Math.PI;
+		// console.log("craa", craa*180/Math.PI);
+
+		dx = Math.cos(planetAngle)*ao;
+		dy = Math.sin(planetAngle)*ao;
+			
 		ctx.beginPath();
-		ctx.rect(0, tdcAtchPtY, 600, 1);
+		ctx.moveTo(planetCenter[0], planetCenter[1])
+		ctx.lineTo(planetCenter[0]+dx, planetCenter[1]+dy)
 		ctx.stroke();
+
+		
+
+		dx = Math.cos(flywheelAngle)*rd/2;
+		dy = Math.sin(flywheelAngle)*rd/2;
+			
 		ctx.beginPath();
-		ctx.rect(center[0]+tdcAtchPtXdif, 0, 1, 900);
+		ctx.moveTo(center[0], center[1])
+		ctx.lineTo(center[0]+dx, center[1]+dy)
 		ctx.stroke();
+
+
+
+
+
+		// ctx.moveTo(attachmentPoint[0], attachmentPoint[1]); // attachment point
+		// ctx.lineTo(center[0], attachmentPoint[1]-difY); // top
+		// ctx.rect(center[0]-cdi/2, cylinderBottom-cch+cht, cdi, -200);
+
+
+		conRodLine = [[attachmentPoint[0]+offsetX, attachmentPoint[1]], [center[0]+offsetX, attachmentPoint[1]-difY]];
+		cylinderLine = [[center[0]+cdi/2, cylinderBottom-cch+cht], [center[0]+cdi/2, cylinderBottom-cch+cht-200]];
+		a = line_intersection(conRodLine, cylinderLine);
+		// intersection arc
+		ctx.beginPath();
+		if (a!=-1){
+			if (a[1]<cylinderBottom && a[1]>attachmentPoint[1]-difY){
+				if (a[1]<highestHitPoint){
+
+					highestHitPoint = a[1]
+					calculatedVars["cpi"].value = (cylinderBottom-a[1])/scale;
+				}
+				ctx.arc(a[0], a[1], 5, 0, 2*Math.PI);
+				ctx.fillStyle = "red";
+				ctx.fill();
+			}
+		}
+		ctx.moveTo(0,highestHitPoint);
+		ctx.lineTo(1000,highestHitPoint);
+		ctx.stroke();
+
+
+		// left side
+		conRodLine = [[attachmentPoint[0]-offsetX, attachmentPoint[1]], [center[0]-offsetX, attachmentPoint[1]-difY]];
+		cylinderLine = [[center[0]-cdi/2, cylinderBottom-cch+cht], [center[0]-cdi/2, cylinderBottom-cch+cht-200]];
+		a = line_intersection(conRodLine, cylinderLine);
+		// intersection arc
+		ctx.beginPath();
+		if (a!=-1){
+			if (a[1]<cylinderBottom && a[1]>attachmentPoint[1]-difY){
+				if (a[1]<highestHitPoint){
+					highestHitPoint = a[1]
+					calculatedVars["cpi"].value = (cylinderBottom-a[1])/scale;
+				}
+				ctx.arc(a[0], a[1], 5, 0, 2*Math.PI);
+				ctx.fillStyle = "red";
+				ctx.fill();
+			}
+		}
+
+
+		
+
+
+
+
 
 
 
 	}
+	highestHitPoint = 10000;
 
 		// cdi = vars["cdi"].value*scale;// cylinder diameter
 		// cht = vars["cht"].value*scale;// cylinder height
 		// cch = vars["cch"].value*scale;// cyliner attachment
 
-	lastHt = 0;
-	htIncreasing = true;
-	bdc = 0;
-	tdc = 0;
-	maxTDC = 0;
+
+
+
+function calculateTDC(ctx, flywheelAngle, center, rd, pd, ao, crl){
+		// center = [0,0]
+
+		flywheelAngle = Math.PI*1.5;
+
+		lastError = 1000;
+		while (flywheelAngle<Math.PI*2){
+			
+
+			c = [center[0], center[1]];
+
+			centerToPlanet = (rd-pd)/2
+			pCenter = [c[0]+centerToPlanet*Math.cos(flywheelAngle), c[1]+centerToPlanet*Math.sin(flywheelAngle)];
+			estAngle = -Math.PI/2 + (flywheelAngle-Math.PI/2)/2; // alpha
+			estAngle*=-1;  
+			aoCenter = [pCenter[0]+Math.cos(estAngle)*ao, pCenter[1]+Math.sin(estAngle)*ao];
+			planetEdge = [c[0]+rd/2*Math.cos(flywheelAngle), c[1]+rd/2*Math.sin(flywheelAngle)];
+
+			transAngle = Math.atan((planetEdge[1]-aoCenter[1]) / (planetEdge[0]-aoCenter[0])) + Math.PI;
+			planetEdge1 = [aoCenter[0]+crl*Math.cos(transAngle), aoCenter[1]+crl*Math.sin(transAngle)];
+
+			difX = c[0]-aoCenter[0];
+			difY = Math.sqrt(crl**2-difX**2)
+			realConRodSpot = [c[0], aoCenter[1]-difY];
+
+
+			realTransAngle = Math.atan((realConRodSpot[1]-aoCenter[1]) / (realConRodSpot[0]-aoCenter[0])) + Math.PI;
+
+			planetEdge2 = [aoCenter[0]+crl*Math.cos(realTransAngle), aoCenter[1]+crl*Math.sin(realTransAngle)];
+
+			error = ((planetEdge2[0] - planetEdge1[0])**2 + (planetEdge2[1] - planetEdge1[1])**2)**0.5;
+
+			if (error>lastError){
+				// console.log("broke");
+				break;
+			}
+
+			lastError = error;
+			flywheelAngle += 0.001;
+		}
+
+		// ctx.beginPath();
+		// ctx.arc(aoCenter[0], aoCenter[1], 5, 0, 2*Math.PI);
+		// ctx.stroke();
+		// ctx.beginPath();
+		// ctx.moveTo(c[0], c[1]);
+		// ctx.lineTo(pCenter[0],pCenter[1]);
+		// ctx.lineTo(aoCenter[0], aoCenter[1]);
+		// ctx.lineTo(planetEdge1[0], planetEdge1[1]);
+		// ctx.moveTo(aoCenter[0], aoCenter[1]);
+		// ctx.lineTo(planetEdge2[0], planetEdge2[1]);
+		// ctx.stroke();
+
+		tdc = planetEdge2[1];
+		return [tdc, flywheelAngle];
+
+}
+
+
+
 
 
 
@@ -796,6 +1279,8 @@ function buildInputs(varsToMake){
 
 	// var myInterval = setInterval(mainloop, 10);
 
+
+
 	function togglePause(){
 		if (paused){
 			myInterval = setInterval(mainloop, 100);
@@ -807,7 +1292,48 @@ function buildInputs(varsToMake){
 			paused = true;
 		}
 	}
-	
+
+
+
+	startMeasure = false;
+
+	function moveEvent(event){
+		if (startMeasure!=false){
+			// console.log(event.x, event.y); 
+		}
+	}
+
+	function clickEvent(event){
+		const canvas = document.getElementById('myCanvas');
+		const ctx = canvas.getContext('2d');
+		const rect = canvas.getBoundingClientRect()
+		const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+
+		if (startMeasure == false){
+			startMeasure = [x, y];
+			ctx.beginPath();
+			ctx.arc(x,y, 5, 0, 2*Math.PI)
+			ctx.stroke();
+
+		} else {
+			
+
+			calculatedVars["msd"].value = ((x-startMeasure[0])**2 + (y-startMeasure[1])**2)**0.5/drawingVars["scale"];
+
+			
+
+			ctx.beginPath();
+			ctx.moveTo(startMeasure[0], startMeasure[1]);
+			ctx.lineTo(x, y);
+			ctx.arc(x,y, 5, 0, 2*Math.PI)
+			ctx.stroke();
+
+			startMeasure = false;
+			updateCalculatedVars();
+		}
+
+	}
 
 // given:
 // bore
@@ -856,7 +1382,7 @@ function buildInputs(varsToMake){
 <input type="button", id="pauseButton" value="pause" onclick="togglePause();"><br>
 Pause at TDC or BDC: <input type="checkbox" checked id="pausewhenTDC"><br><br>
 
-<canvas id="myCanvas" width="1000px" height="1000px" style="background: rgb(200,200,200);">
+<canvas id="myCanvas" width="1000px" height="1000px" style="background: rgb(200,200,200); " onmousedown="clickEvent(event);" onmousemove="moveEvent(event);">
 </html>
 <script>
 var myInterval = setInterval(mainloop, drawingVars["time delay"]);
