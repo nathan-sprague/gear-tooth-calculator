@@ -12,7 +12,7 @@ var drawingVars = {
 	"flywheelAngle": Math.PI/2,
 	"planetAngle": Math.PI/2,
 	"time delay": 50,
-	"calc angle change": 0.01//Math.PI/36
+	"calc angle change": 0.06//Math.PI/36
 	
 
 }
@@ -80,7 +80,7 @@ vars = {
 	"nrt": new CalcVar("Ring Teeth", 156, "count", "planetary", [], false, false), // 156 irl
 	"pts": new CalcVar("Tooth Size", 13.3, "count", "planetary", [], false, true),
 
-	"est": new CalcVar("Engine Stroke", 150, "length", "cylinder", [], false, false),
+	"est": new CalcVar("Engine Stroke", 369, "length", "cylinder", [], false, true),
 	
 	"crw": new CalcVar("Con rod width", 46.365, "length", "cylinder", [], false, false), // 46.365
 
@@ -92,12 +92,12 @@ vars = {
 	"mps": new CalcVar("Mean Piston Speed", 275, "speed", "valve", [], false, false),
 	"evt": new CalcVar("Exhaust Valve Temperature", 120, "length", "valve", [], false, false),
 
-	"pdi": new CalcVar("Port Diameter", 1, "length", "valve", ["vbo", "mps", "gv"], true, false),
-	"vlt": new CalcVar("Valve Lift", 1, "length", "valve", ["pdi", "vsa"], true, false),
-	"vdt": new CalcVar("Valve Disc Thickness", 1, "length", "valve", ["msc", "pdi", "mgp", "mas"], true, false),
-	"vhd": new CalcVar("Valve Head Diameter", 1, "length", "valve", ["pdi", "vdt", "vsa"], true, false),
-	"vho": new CalcVar("Valve Head Opening", 1, "length", "valve", ["pdi", "vhd"], true, false),
-	"vsw": new CalcVar("Valve Seating Width", 1, "length", "valve", ["pdi", "vhd"], true, false),
+	"pdi": new CalcVar("Port Diameter", 1, "length", "valve", ["vbo", "mps", "gv"], true, true),
+	"vlt": new CalcVar("Valve Lift", 1, "length", "valve", ["pdi", "vsa"], true, true),
+	"vdt": new CalcVar("Valve Disc Thickness", 1, "length", "valve", ["msc", "pdi", "mgp", "mas"], true, true),
+	"vhd": new CalcVar("Valve Head Diameter", 1, "length", "valve", ["pdi", "vdt", "vsa"], true, true),
+	"vho": new CalcVar("Valve Head Opening", 1, "length", "valve", ["pdi", "vhd"], true, true),
+	"vsw": new CalcVar("Valve Seating Width", 1, "length", "valve", ["pdi", "vhd"], true, true),
 	"vsd": new CalcVar("Valve Stem Diameter", 1, "length", "valve", ["pdi"], true, false),
 
 	"btd": new CalcVar("Bucket Tappet Diameter", 40, "length", "valve", [], false, false),
@@ -107,7 +107,7 @@ vars = {
 	"flk": new CalcVar("Cam Flank", 35, "length", "valve", [], false, true),
 	"ncd": new CalcVar("Cam Nose Diameter", 50, "length", "valve", [], false, true),
 	"bcd": new CalcVar("Cam Base Diameter", 100, "length", "valve", [], false, true),
-	"ccp": new CalcVar("Cam Clearance Ramp", 10, "length", "valve", [], false, true),
+	"ccp": new CalcVar("Cam Clearance Ramp", 1, "length", "valve", [], false, true),
 
 
 
@@ -339,6 +339,8 @@ function buildInputs(varsToMake){
 
 		updateCalculatedVars();
 
+		findMinTransAngle(center, ao, flywheelAngle, planetAngle, crl, pd, rd);
+
 		// optimizeSizes(ctx, [center[0], center[1]+(totalHeight-conRodHeight-planetaryHeight)*scale], ao, flywheelAngle, planetAngle, crl, pd, rd);
 
 	}
@@ -382,7 +384,7 @@ function buildInputs(varsToMake){
 	}
 
 
-function findMinTransAngle(center, ao, flywheelAngle, planetAngle, conRodLength, pd, rd){
+	function findMinTransAngle(center, ao, flywheelAngle, planetAngle, conRodLength, pd, rd){
 		d1 = (rd-pd)/2;
 		d2 = ao;
 
@@ -401,10 +403,18 @@ function findMinTransAngle(center, ao, flywheelAngle, planetAngle, conRodLength,
 		difX = c[0]-aoCenter[0];
 		difY = Math.sqrt(crl**2-difX**2)
 		realConRodSpot = [c[0], aoCenter[1]-difY];
-		transAngle = Math.atan((realConRodSpot[1]-aoCenter[1]) / (realConRodSpot[0]-aoCenter[0])) + Math.PI;
+		aaa = (realConRodSpot[1]-aoCenter[1]) / (realConRodSpot[0]-aoCenter[0]);
+
+		// console.log("aaa", aaa);
+		transAngle = Math.atan(aaa) + Math.PI;
 		calculatedVars["mta"].value = transAngle*180/Math.PI-180;
-		console.log("trans angle --------------->", realConRodSpot, aoCenter);
-		return [transAngle, b]
+		// console.log("trans angle --------------->", transAngle, b);
+
+
+
+		var abcd = transAngle;
+		// console.log(abcd);
+		return abcd;
 	}
 
 	function tylerEqn2(center, ao, flywheelAngle, planetAngle, conRodLength, pd, rd, mta, b){
@@ -431,33 +441,42 @@ function findMinTransAngle(center, ao, flywheelAngle, planetAngle, conRodLength,
 		center = [0,0]
 		// modify conRodLength and (rd-pd)/2 to minimize height
 		//keep stroke constant
-		var mta = 90;
-		i=0;
-		while (mta>65 && i<10){
-			pd *= 1.1;
-			rd *= 1.1;
+		let mta = 90;
+		let i=0;
+		while (mta>65.5 && i<1000){
+			pd *= 1.001;
+			rd *= 1.001;
 
 			let crl = findConRodLength(ctx, 92*scale, pd, rd, ao);
 
 			console.log(ao, 0, 0, crl, pd, rd)
 			
-			mta = findMinTransAngle([0,0], ao, 0, 0, crl, pd, rd) * 180 / Math.PI ;
+			mta = findMinTransAngle([0,0], ao, 0, 0, crl, pd, rd) * 180 / Math.PI - 180;
 
-
-			console.log("min trans angle", a[0]*180/Math.PI-180);
+			// console.log("min trans angle", mta)//, //mta[0]*180/Math.PI-180);
 			
-			console.log("mta", mta);
+			// console.log("mta", mtaa);
 
 
-			// b = calculateHeight(ctx, [0,0], 0, rd, pd, ao, conRodLength)
+			b = calculateHeight(ctx, [0,0], 0, rd, pd, ao, conRodLength)
 
 
-
-
-			console.log("height", ht/scale);
-			console.log("stroke1", b[1]/scale, "stroke2", b[2]/scale);
+			// console.log("height", ht/scale);
+			// console.log("stroke1", b[1]/scale, "stroke2", b[2]/scale);
+					console.log("mta", mta);
+					console.log("iterations:", i);
+					console.log("pd:", pd/scale);
+					console.log("rd:", rd/scale);
+					console.log("crl", crl/scale);
 			i+=1;
 		}
+
+		console.log("-_-_-_-_-_-_-_-_-_-_-_-")
+		console.log("mta final", mta);
+		console.log("iterations:", i);
+		console.log("pd:", pd/scale);
+		console.log("rd:", rd/scale);
+		console.log("crl", crl);
 	}
 
 
@@ -474,7 +493,7 @@ function findMinTransAngle(center, ao, flywheelAngle, planetAngle, conRodLength,
 			stroke = strokes[2];
 			newError = targetStroke-stroke;
 			// console.log("crl", crl/scale, "stroke", strokes[2]/scale);
-			console.log("new error", newError/scale);
+			// console.log("new error", newError/scale);
 			if (Math.abs(error)<Math.abs(newError)){
 				crl = lastCrl;
 				break;
@@ -626,7 +645,7 @@ traDir = 1;
 				a+=planetToothAngle*0.5;
 			}
 
-			ctx.fillStyle="rgb(200,200,200)";
+			ctx.fillStyle="white";
 			ctx.fill();
 
 			ctx.stroke();
@@ -672,7 +691,7 @@ traDir = 1;
 			traDir = -1;
 		} else 	if (tra<newTra && traDir<0){
 			traDir = 1;
-			togglePause();
+			// togglePause();
 		}
 
 		if (difX != 0){
@@ -730,7 +749,7 @@ traDir = 1;
 		ctx.beginPath();
 		ctx.rect(center[0]-cdi/2, attachmentPoint[1]-difY-cch, cdi, cht);
 		ctx.lineWidth = 1;
-		ctx.fillStyle = "white";
+		ctx.fillStyle = "green";
 		ctx.fill();
 		ctx.stroke();
 
@@ -767,9 +786,11 @@ traDir = 1;
 		ctx.lineTo(center[0]-offsetX, attachmentPoint[1]-difY); // top
 		ctx.lineTo(attachmentPoint[0]-offsetX, attachmentPoint[1]);
 		ctx.lineTo(attachmentPoint[0]+offsetX, attachmentPoint[1]);
-		ctx.fillStyle="green";
+		ctx.strokeStyle="gray";
+		ctx.fillStyle="gray";
 		ctx.fill();
 		ctx.stroke();
+		ctx.strokeStyle="black";
 
 		
 
@@ -787,21 +808,24 @@ traDir = 1;
 		dx = Math.cos(planetAngle)*ao;
 		dy = Math.sin(planetAngle)*ao;
 			
-		ctx.beginPath();
-		ctx.moveTo(planetCenter[0], planetCenter[1])
-		ctx.lineTo(planetCenter[0]+dx, planetCenter[1]+dy)
-		ctx.stroke();
+		// ctx.beginPath();
+		// ctx.moveTo(planetCenter[0], planetCenter[1])
+		// ctx.lineTo(planetCenter[0]+dx, planetCenter[1]+dy)
+		// ctx.stroke();
 
 		
 
 		dx = Math.cos(flywheelAngle)*rd/2;
 		dy = Math.sin(flywheelAngle)*rd/2;
 			
-		ctx.beginPath();
-		ctx.moveTo(center[0], center[1])
-		ctx.lineTo(center[0]+dx, center[1]+dy)
-		ctx.stroke();
+		// ctx.beginPath();
 
+		// ctx.strokeStyle="blue";
+		// ctx.moveTo(center[0], center[1])
+		// ctx.lineTo(center[0]+dx, center[1]+dy)
+
+		// ctx.stroke();
+		ctx.strokeStyle="black";
 
 
 
@@ -828,9 +852,9 @@ traDir = 1;
 				ctx.fill();
 			}
 		}
-		ctx.moveTo(0,highestHitPoint);
-		ctx.lineTo(1000,highestHitPoint);
-		ctx.stroke();
+		// ctx.moveTo(0,highestHitPoint);
+		// ctx.lineTo(1000,highestHitPoint);
+		// ctx.stroke();
 
 
 		// left side
@@ -932,7 +956,7 @@ function calculateTDC(ctx, flywheelAngle, center, rd, pd, ao, crl){
 
 
 
-
+var valveHeights = [];
 
 	function drawValve(ctx, center, scale, orientation, edgeAngle){
 
@@ -1095,7 +1119,25 @@ function calculateTDC(ctx, flywheelAngle, center, rd, pd, ao, crl){
 
 
 
-		// make valve
+		// // make valve
+		// if (valveNum==1){
+		// 	valveNum = 0;
+		// } else{
+		// 	valveNum = 1;
+		// 	valveHeights.push(base[1]);
+		// 	valveHeights.push(orientation*180/Math.PI);
+		// 	// console.log(base[1], orientation*180/Math.PI)
+		// 	// console.log(valveHeights.length);
+		// 	if (valveHeights.length>500){
+		// 		console.log(valveHeights);
+		// 		togglePause();
+		// 		res = listToDictMsgs(valveHeights);
+		// 		sendCsv("delete", res);
+		// 		valveHeights = [];
+		// 	}
+		// }
+
+
 		ctx.beginPath();
 
 		ctx.rect(center[0]+realCenter[0]-btd/2, base[1], btd, btl); // bucket tappet
@@ -1129,6 +1171,7 @@ function calculateTDC(ctx, flywheelAngle, center, rd, pd, ao, crl){
 
 
 	}
+	valveNum = 0;
 
 	function findCamIntersection(pt7, pt2, pt4, pt6, pt8, center, nd){
 		l = line_intersection([pt8, pt7], [pt5, pt6])
@@ -1335,6 +1378,41 @@ function calculateTDC(ctx, flywheelAngle, center, rd, pd, ao, crl){
 
 	}
 
+
+function sendCsv(csvName, fileData) {
+	console.log("Sending csv");
+	keyys = Object.keys(fileData);
+	console.log("names: " + keyys);
+	var csvData = [];
+	i=0;
+	while (i<keyys.length){
+		csvData.push(fileData[keyys[i]]);
+		i+=1;
+	}
+	csvData = csvData[0].map((_, colIndex) => csvData.map(row => row[colIndex]));
+	csvData.splice(0, 0, keyys);
+
+	let csvContent = "data:text/csv;charset=utf-8," + csvData.map(e => e.join(",")).join("\n");
+	var encodedUri = encodeURI(csvContent);
+	var link = document.createElement('a');
+	link.setAttribute('href', encodedUri);    
+	link.setAttribute('download', csvName + '.csv');    
+	link.click();
+}
+
+
+function listToDictMsgs(msgs){
+	res = {"angle":[], "valve height": []};
+	k = Object.keys(res);
+	i = 0;
+	while (i<msgs.length){
+		res[k[i%2]].push(msgs[i]);
+		i+=1;
+	}
+	return res;
+}
+
+
 // given:
 // bore
 // stroke
@@ -1382,7 +1460,7 @@ function calculateTDC(ctx, flywheelAngle, center, rd, pd, ao, crl){
 <input type="button", id="pauseButton" value="pause" onclick="togglePause();"><br>
 Pause at TDC or BDC: <input type="checkbox" checked id="pausewhenTDC"><br><br>
 
-<canvas id="myCanvas" width="1000px" height="1000px" style="background: rgb(200,200,200); " onmousedown="clickEvent(event);" onmousemove="moveEvent(event);">
+<canvas id="myCanvas" width="1000px" height="1000px" style="background: 'white'; " onmousedown="clickEvent(event);" onmousemove="moveEvent(event);">
 </html>
 <script>
 var myInterval = setInterval(mainloop, drawingVars["time delay"]);
