@@ -71,26 +71,26 @@ class CalcVar {
 }
 
 vars = {
-	"es": new CalcVar("Engine Speed", 1150, "rpm", "engine", [], false, false), // 1600 irl
-	"gv": new CalcVar("Gas Velocity", 2100, "speed", "engine", [], false, false),
-	"msc": new CalcVar("Material Stress Constant", 0.42, "count", "engine", [], false, false),
-	"mas": new CalcVar("Max Allowable Stress", 57.5, "pressure", "engine", [], false, false),
+	"es": new CalcVar("Engine Speed", 1150, "rpm", "engine", [], false, true), // 1600 irl
+	"gv": new CalcVar("Gas Velocity", 2100, "speed", "engine", [], false, true),
+	"msc": new CalcVar("Material Stress Constant", 0.42, "count", "engine", [], false, true),
+	"mas": new CalcVar("Max Allowable Stress", 57.5, "pressure", "engine", [], false, true),
 
-	"npt": new CalcVar("Planet Teeth", 104, "count", "planetary", [], false, false), // 104 irl
-	"nrt": new CalcVar("Ring Teeth", 156, "count", "planetary", [], false, false), // 156 irl
+	"npt": new CalcVar("Planet Teeth", 104, "count", "planetary", [], false, true), // 104 irl
+	"nrt": new CalcVar("Ring Teeth", 156, "count", "planetary", [], false, true), // 156 irl
 	"pts": new CalcVar("Tooth Size", 13.3, "count", "planetary", [], false, true),
 
 	"est": new CalcVar("Engine Stroke", 369, "length", "cylinder", [], false, true),
 	
-	"crw": new CalcVar("Con rod width", 46.365, "length", "cylinder", [], false, false), // 46.365
+	"crw": new CalcVar("Con rod width", 46.365, "length", "cylinder", [], false, true), // 46.365
 
-	"vbo": new CalcVar("Valve Bore", 120, "length", "valve", [], false, false),
-	"vs": new CalcVar("Valve Stroke", 370, "length", "valve", [], false, false),
-	"vsa": new CalcVar("Valve Seat Angle", 45, "angle", "valve", [], false, false),
-	"vsl": new CalcVar("Valve Stem Length", 120, "length", "valve", [], false, false),
-	"mgp": new CalcVar("Max Gas Pressure", 6, "length", "valve", [], false, false), // 120 N/mm2
-	"mps": new CalcVar("Mean Piston Speed", 275, "speed", "valve", [], false, false),
-	"evt": new CalcVar("Exhaust Valve Temperature", 120, "length", "valve", [], false, false),
+	"vbo": new CalcVar("Valve Bore", 120, "length", "valve", [], false, true),
+	"vs": new CalcVar("Valve Stroke", 370, "length", "valve", [], false, true),
+	"vsa": new CalcVar("Valve Seat Angle", 45, "angle", "valve", [], false, true),
+	"vsl": new CalcVar("Valve Stem Length", 120, "length", "valve", [], false, true),
+	"mgp": new CalcVar("Max Gas Pressure", 6, "length", "valve", [], false, true), // 120 N/mm2
+	"mps": new CalcVar("Mean Piston Speed", 275, "speed", "valve", [], false, true),
+	"evt": new CalcVar("Exhaust Valve Temperature", 120, "length", "valve", [], false, true),
 
 	"pdi": new CalcVar("Port Diameter", 1, "length", "valve", ["vbo", "mps", "gv"], true, true),
 	"vlt": new CalcVar("Valve Lift", 1, "length", "valve", ["pdi", "vsa"], true, true),
@@ -98,11 +98,11 @@ vars = {
 	"vhd": new CalcVar("Valve Head Diameter", 1, "length", "valve", ["pdi", "vdt", "vsa"], true, true),
 	"vho": new CalcVar("Valve Head Opening", 1, "length", "valve", ["pdi", "vhd"], true, true),
 	"vsw": new CalcVar("Valve Seating Width", 1, "length", "valve", ["pdi", "vhd"], true, true),
-	"vsd": new CalcVar("Valve Stem Diameter", 1, "length", "valve", ["pdi"], true, false),
+	"vsd": new CalcVar("Valve Stem Diameter", 1, "length", "valve", ["pdi"], true, true),
 
-	"btd": new CalcVar("Bucket Tappet Diameter", 40, "length", "valve", [], false, false),
-	"btl": new CalcVar("Bucket Tappet Length", 50, "length", "valve", [], false, false),
-	"vsl": new CalcVar("Valve Stem Length", 100, "length", "valve", [], false, false),
+	"btd": new CalcVar("Bucket Tappet Diameter", 40, "length", "valve", [], false, true),
+	"btl": new CalcVar("Bucket Tappet Length", 50, "length", "valve", [], false, true),
+	"vsl": new CalcVar("Valve Stem Length", 100, "length", "valve", [], false, true),
 
 	"flk": new CalcVar("Cam Flank", 35, "length", "valve", [], false, true),
 	"ncd": new CalcVar("Cam Nose Diameter", 50, "length", "valve", [], false, true),
@@ -1458,7 +1458,7 @@ function listToDictMsgs(msgs){
 <html>
 <br>
 <input type="button", id="pauseButton" value="pause" onclick="togglePause();"><br>
-Pause at TDC or BDC: <input type="checkbox" checked id="pausewhenTDC"><br><br>
+Pause at TDC or BDC: <input type="checkbox" id="pausewhenTDC"><br><br>
 
 <canvas id="myCanvas" width="1000px" height="1000px" style="background: 'white'; " onmousedown="clickEvent(event);" onmousemove="moveEvent(event);">
 </html>
